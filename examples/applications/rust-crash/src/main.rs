@@ -7,14 +7,11 @@ use std::time::Duration;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let port = args.get(1).unwrap_or(&"8080".to_string()).clone();
+    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     
     println!("Rust app starting on port {}", port);
 
-    // Simulate startup time
-    thread::sleep(Duration::from_millis(500));
-
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port));
+    let listener = TcpListener::bind(format!("0.0.0.0:{}", port));
     
     match listener {
         Ok(l) => {
@@ -30,10 +27,12 @@ fn main() {
                         stream.write(response.as_bytes()).unwrap();
                         stream.flush().unwrap();
                         
-                        // CRASH LOGIC for testing respawn
-                        println!("Request received, initiating crash sequence...");
-                        thread::sleep(Duration::from_millis(100));
-                        panic!("Intentional crash to test respawn logic!");
+                        // Only crash if explicitly enabled via environment variable
+                        if env::var("ENABLE_CRASH").unwrap_or_default() == "true" {
+                            println!("Request received, initiating crash sequence...");
+                            thread::sleep(Duration::from_millis(100));
+                            panic!("Intentional crash to test respawn logic!");
+                        }
                     }
                     Err(e) => {
                         eprintln!("Connection failed: {}", e);

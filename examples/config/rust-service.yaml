@@ -1,0 +1,23 @@
+processes:
+  - name: rust-service
+    # Point to the compiled binary
+    script: ./examples/applications/rust-crash/target/release/rust-crash-app
+    # Set instance count
+    instances: 1
+    # Configure environment variables
+    env:
+      PORT: "8080"
+      RUST_LOG: "info"
+      ENABLE_CRASH: "false" # Set to "true" to enable crash mode
+    
+    # Process configuration
+    autorestart: true
+    maxRestarts: 10
+    restartDelay: 1000
+    
+    # Logging
+    stdout: logs/rust-service.out
+    stderr: logs/rust-service.err
+    
+    # Resource constraints
+    maxMemory: 50M # Restart if > 50MB
