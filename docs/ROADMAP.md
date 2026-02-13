@@ -208,7 +208,8 @@ processes:
 | Webhooks           | ✅  | ✅   | Event notifications        |
 | Startup scripts    | ✅  | ❌   | systemd/launchd generation |
 | Save/Resurrect     | ✅  | ❌   | Process persistence        |
-| Log flush          | ✅  | ❌   | Clear logs command         |
+| Log flush          | ✅  | ✅   | Clear logs command         |
+| Log reload         | ✅  | ✅   | Reload logs command        |
 | Deployment         | ✅  | ❌   | Remote deploy via SSH      |
 | Static serve       | ✅  | ❌   | Serve static files         |
 | Reset counters     | ✅  | ❌   | Reset restart count        |

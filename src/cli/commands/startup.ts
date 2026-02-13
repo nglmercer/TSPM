@@ -235,5 +235,5 @@ export async function unstartupCommand(): Promise<void> {
  */
 function resolveScriptPath(): string {
   // If running via bun directly on the file
-  return process.argv[1];
+  return process.argv[1] ?? process.argv[0] ?? '';
 }

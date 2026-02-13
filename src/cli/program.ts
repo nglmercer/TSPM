@@ -16,7 +16,11 @@ import {
   groupsCommand,
   devCommand,
   flushCommand,
-  reloadLogsCommand
+  reloadLogsCommand,
+  saveCommand,
+  resurrectCommand,
+  startupCommand,
+  unstartupCommand
 } from './commands';
 
 /**
@@ -201,6 +205,34 @@ export function createProgram(): Command {
     .argument('[config-file]', 'Configuration file path (default: tspm.yaml)', 'tspm.yaml')
     .option('-p, --port <number>', 'API port (default: 3000)', '3000')
     .action(devCommand);
+
+  // Save command
+  program
+    .command('save')
+    .description('Save current process list to dump file')
+    .action(saveCommand);
+
+  // Resurrect command
+  program
+    .command('resurrect')
+    .description('Restore processes from dump file')
+    .action(resurrectCommand);
+
+  // Startup command
+  program
+    .command('startup')
+    .description('Generate system startup script')
+    .argument('[platform]', 'Platform to generate script for (systemd)', 'systemd')
+    .option('-u, --user <user>', 'User to run the service as')
+    .action((platform, options) => {
+      startupCommand({ system: platform, user: options.user });
+    });
+
+  // Unstartup command
+  program
+    .command('unstartup')
+    .description('Remove startup script')
+    .action(unstartupCommand);
 
   return program;
 }

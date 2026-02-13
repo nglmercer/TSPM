@@ -15,7 +15,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   const program = createProgram();
 
   try {
-    await program.parseAsync(argv);
+    await program.parseAsync(argv, { from: 'user' });
   } catch (error) {
     log.error(`[TSPM] Error: ${error}`);
     process.exit(EXIT_CODES.ERROR);

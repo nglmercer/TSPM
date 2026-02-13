@@ -1,8 +1,6 @@
-import { readdirSync, unlinkSync, existsSync } from 'fs';
+import { readdirSync, unlinkSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { DEFAULT_PROCESS_CONFIG } from '../../utils/config/constants';
-import { log } from '../../utils/logger';
-import { readProcessStatus } from '../state/status';
 
 /**
  * Flush command options
@@ -60,23 +58,38 @@ function getLogPaths(processName: string, logDir: string): string[] {
  * It can flush all logs, or specific types (out/err).
  */
 export function flushCommand(options: FlushOptions): void {
-  const status = readProcessStatus();
   const logDir = DEFAULT_PROCESS_CONFIG.logDir;
+  const log = console;
   
   if (!existsSync(logDir)) {
-    log.info('[TSPM] No log directory found');
+    log.log('[TSPM] No log directory found');
     return;
   }
   
-  const processNames = options.name ? [options.name] : Object.keys(status);
+  // Read status file directly to get process names
+  let processNames: string[] = [];
+  const { STATUS_FILE } = require('../state/constants');
+  try {
+    const statusFile = require('fs').readFileSync(STATUS_FILE, 'utf-8');
+    const status = JSON.parse(statusFile);
+    processNames = Object.keys(status);
+  } catch (e) {
+    // If no status file, list directories in log folder
+    try {
+      const files = readdirSync(logDir);
+      processNames = [...new Set(files.map(f => f.replace(/\.log.*$/, '').replace(/-out$/, '').replace(/-err$/, '')))];
+    } catch (err) {
+      processNames = [];
+    }
+  }
+  
+  if (options.name) {
+    processNames = [options.name];
+  }
+  
   let totalFilesCleared = 0;
   
   for (const name of processNames) {
-    if (!status[name]) {
-      log.warn(`[TSPM] Process not found: ${name}`);
-      continue;
-    }
-    
     const logPaths = getLogPaths(name, logDir);
     
     // Filter based on options
@@ -88,31 +101,22 @@ export function flushCommand(options: FlushOptions): void {
     
     for (const path of filteredPaths) {
       try {
-        // Clear file content instead of deleting (preserves file permissions)
-        const Bun = require('bun');
-        Bun.write(path, '');
+        // Clear file content by writing empty string
+        writeFileSync(path, '');
         totalFilesCleared++;
-      } catch (e) {
-        // Fallback: try to unlink and recreate
-        try {
-          unlinkSync(path);
-          const Bun = require('bun');
-          Bun.write(path, '');
-          totalFilesCleared++;
-        } catch (writeError) {
-          log.error(`[TSPM] Failed to clear log: ${path} - ${writeError}`);
-        }
+      } catch (writeError) {
+        log.error(`[TSPM] Failed to clear log: ${path} - ${writeError}`);
       }
     }
     
     if (filteredPaths.length > 0) {
-      log.success(`[TSPM] ✓ Flushed ${filteredPaths.length} log file(s) for: ${name}`);
+      log.log(`[TSPM] ✓ Flushed ${filteredPaths.length} log file(s) for: ${name}`);
     }
   }
   
   if (totalFilesCleared === 0) {
-    log.info('[TSPM] No log files to flush');
+    log.log('[TSPM] No log files to flush');
   } else {
-    log.success(`[TSPM] ✓ Total: ${totalFilesCleared} log file(s) flushed`);
+    log.log(`[TSPM] ✓ Total: ${totalFilesCleared} log file(s) flushed`);
   }
 }

@@ -1,8 +1,6 @@
 import { existsSync, readdirSync, openSync, closeSync } from 'fs';
 import { join } from 'path';
 import { DEFAULT_PROCESS_CONFIG } from '../../utils/config/constants';
-import { log } from '../../utils/logger';
-import { readProcessStatus } from '../state/status';
 
 /**
  * ReloadLogs options
@@ -55,23 +53,38 @@ function getAllLogPaths(processName: string, logDir: string): string[] {
  * writing to new file handles while the old files can be rotated.
  */
 export function reloadLogsCommand(options: ReloadLogsOptions): void {
-  const status = readProcessStatus();
   const logDir = DEFAULT_PROCESS_CONFIG.logDir;
+  const log = console;
   
   if (!existsSync(logDir)) {
-    log.info('[TSPM] No log directory found');
+    log.log('[TSPM] No log directory found');
     return;
   }
   
-  const processNames = options.name ? [options.name] : Object.keys(status);
+  // Read status file directly to get process names
+  let processNames: string[] = [];
+  const { STATUS_FILE } = require('../state/constants');
+  try {
+    const statusFile = require('fs').readFileSync(STATUS_FILE, 'utf-8');
+    const status = JSON.parse(statusFile);
+    processNames = Object.keys(status);
+  } catch (e) {
+    // If no status file, list directories in log folder
+    try {
+      const files = readdirSync(logDir);
+      processNames = [...new Set(files.map(f => f.replace(/\.log.*$/, '').replace(/-out$/, '').replace(/-err$/, '')))];
+    } catch (err) {
+      processNames = [];
+    }
+  }
+  
+  if (options.name) {
+    processNames = [options.name];
+  }
+  
   let totalFilesReloaded = 0;
   
   for (const name of processNames) {
-    if (!status[name]) {
-      log.warn(`[TSPM] Process not found: ${name}`);
-      continue;
-    }
-    
     const logPaths = getAllLogPaths(name, logDir);
     
     for (const path of logPaths) {
@@ -89,13 +102,13 @@ export function reloadLogsCommand(options: ReloadLogsOptions): void {
     }
     
     if (logPaths.length > 0) {
-      log.success(`[TSPM] ✓ Reloaded ${logPaths.length} log file(s) for: ${name}`);
+      log.log(`[TSPM] ✓ Reloaded ${logPaths.length} log file(s) for: ${name}`);
     }
   }
   
   if (totalFilesReloaded === 0) {
-    log.info('[TSPM] No log files to reload');
+    log.log('[TSPM] No log files to reload');
   } else {
-    log.success(`[TSPM] ✓ Total: ${totalFilesReloaded} log file(s) reloaded`);
+    log.log(`[TSPM] ✓ Total: ${totalFilesReloaded} log file(s) reloaded`);
   }
 }
