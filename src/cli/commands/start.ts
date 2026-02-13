@@ -3,6 +3,7 @@ import { join } from 'path';
 import { ConfigLoader, ProcessManager } from '../../core';
 import { EXIT_CODES, PROCESS_STATE } from '../../utils/config/constants';
 import { log, configureLogger } from '../../utils/logger';
+import { startApi } from '../../utils/api';
 import { TSPM_HOME } from '../state/constants';
 import { ensureTSPMHome, updateProcessStatus, writeDaemonStatus } from '../state/status';
 
@@ -77,6 +78,11 @@ export async function startCommand(
     if (options.daemon) {
       log.info(`[TSPM] Running in daemon mode`);
       writeDaemonStatus({ pid: process.pid, startedAt: Date.now(), configFile: configPath });
+    }
+
+    // Start API if enabled
+    if (config.api?.enabled !== false) {
+        startApi(manager, config.api || {});
     }
 
     log.success(`[TSPM] All processes started successfully`);

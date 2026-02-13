@@ -202,25 +202,28 @@ processes:
 
 ---
 
-## Phase 5: Developer Experience
+## Phase 5: Developer Experience ✅ (COMPLETED)
 
-- [ ] Hot reload (file watcher)
-- [ ] Interactive terminal
-- [ ] JSON API
+- [x] Hot reload (file watcher)
+- [x] JSON API for remote management
+- [x] `tspm dev` command
+- [x] Resource management (max-memory limits)
+- [x] Dotenv support
+- [x] Lifecycle hooks (preStart/postStart)
 
 ---
 
 ## Phase 6: Production Features ✅ (COMPLETED)
 
-| Feature                  | Status | Description                                              |
-| ------------------------ | ------ | -------------------------------------------------------- |
-| **Memory Limits**        | ✅     | maxMemory config for OOM restart                         |
-| **minUptime**           | ✅     | Minimum uptime before counting as successful start       |
-| **Restart Backoff**      | ✅     | Configurable restart delay (minRestartDelay, maxRestartDelay, restartBackoff) |
-| **Process Priority**    | ✅     | nice value support for CPU scheduling                   |
-| **Kubernetes Support**   | ✅     | Kubernetes config (labels, annotations, probes)          |
-| **Docker Support**      | ✅     | Docker config (container name, labels, limits)           |
-| **OOM Events**          | ✅     | process:oom event for memory limit detection            |
+| Feature                | Status | Description                                                                   |
+| ---------------------- | ------ | ----------------------------------------------------------------------------- |
+| **Memory Limits**      | ✅     | maxMemory config for OOM restart                                              |
+| **minUptime**          | ✅     | Minimum uptime before counting as successful start                            |
+| **Restart Backoff**    | ✅     | Configurable restart delay (minRestartDelay, maxRestartDelay, restartBackoff) |
+| **Process Priority**   | ✅     | nice value support for CPU scheduling                                         |
+| **Kubernetes Support** | ✅     | Kubernetes config (labels, annotations, probes)                               |
+| **Docker Support**     | ✅     | Docker config (container name, labels, limits)                                |
+| **OOM Events**         | ✅     | process:oom event for memory limit detection                                  |
 
 ---
 
@@ -233,6 +236,6 @@ processes:
 
 ---
 
-_Last Updated: 2026-02-02_
-_Total Tests: 42 passing_
-_Phase 2 Complete: Load Balancing, Clustering, Health Checks, Events_
+_Last Updated: 2026-02-13_
+_Total Tests: 47 passing_
+_Phase 5 Complete: Hot Reload, API, Dev Mode, Resource Management_

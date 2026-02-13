@@ -13,7 +13,8 @@ import {
   monitCommand,
   clusterCommand,
   scaleCommand,
-  groupsCommand
+  groupsCommand,
+  devCommand
 } from './commands';
 
 /**
@@ -169,6 +170,14 @@ export function createProgram(): Command {
     .command('groups')
     .description('Show process groups and namespaces')
     .action(groupsCommand);
+
+  // Dev command
+  program
+    .command('dev')
+    .description('Start processes in development mode with hot-reload')
+    .argument('[config-file]', 'Configuration file path (default: tspm.yaml)', 'tspm.yaml')
+    .option('-p, --port <number>', 'API port (default: 3000)', '3000')
+    .action(devCommand);
 
   return program;
 }

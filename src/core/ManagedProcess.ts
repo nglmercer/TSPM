@@ -114,17 +114,24 @@ export class ManagedProcess {
       [ENV_VARS.INSTANCE_ID]: this.instanceId.toString(),
     } as Record<string, string>;
 
-    // Enable source map support if it's a JS/TS script
-    if (this.config.script.endsWith('.js')) {
-      env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
-    }
+    const cmd = [...(this.config.args || [])];
+    let interpreter = this.config.script;
+
+    // Use bun as default interpreter for JS/TS scripts if not explicitly provided
     if (this.config.script.endsWith('.ts') || this.config.script.endsWith('.js')) {
+      interpreter = "bun";
+      cmd.unshift(this.config.script);
+      
       // For Bun source maps
       env.BUN_CONFIG_VERBOSE_SOURCE_MAPS = "true";
+      
+      if (this.config.script.endsWith('.js')) {
+        env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
+      }
     }
 
     this.subprocess = spawn({
-      cmd: [this.config.script, ...(this.config.args || [])],
+      cmd: [interpreter, ...cmd],
       cwd: this.config.cwd,
       env,
       stdout: stdoutPath ? "pipe" : "inherit",
@@ -176,11 +183,14 @@ export class ManagedProcess {
       EventPriorityValues.NORMAL
     ));
 
+    // Start memory monitoring
+    this.startMemoryMonitoring();
+
     if (stdoutPath && this.subprocess.stdout instanceof ReadableStream) {
-      this.streamToFile(this.subprocess.stdout, stdoutPath);
+      this.asyncStreamToBuffer(this.subprocess.stdout, stdoutPath, 'stdout');
     }
     if (stderrPath && this.subprocess.stderr instanceof ReadableStream) {
-      this.streamToFile(this.subprocess.stderr, stderrPath);
+      this.asyncStreamToBuffer(this.subprocess.stderr, stderrPath, 'stderr');
     }
   }
 
@@ -229,6 +239,19 @@ export class ManagedProcess {
     
     this.setState('restarting');
     
+    // Emit restart event
+    this.eventEmitter.emit(createEvent(
+      EventTypeValues.PROCESS_RESTART,
+      'ManagedProcess',
+      {
+        processName: this.config.name,
+        instanceId: this.instanceId,
+        restartCount: ++this.restartCount,
+        reason: reason,
+      },
+      EventPriorityValues.NORMAL
+    ));
+
     // Stop without trigger handleExit logic that might cause double restart
     if (this.subprocess) {
       this.subprocess.kill();
@@ -448,8 +471,9 @@ export class ManagedProcess {
   /**
    * Stream process output to a file with rotation
    */
-  private async streamToFile(stream: ReadableStream, path: string): Promise<void> {
+  private async asyncStreamToBuffer(stream: ReadableStream, path: string, type: 'stdout' | 'stderr'): Promise<void> {
     const writer = stream.getReader();
+    const decoder = new TextDecoder();
     let bytesWritten = 0;
     const rotateThreshold = 64 * 1024; // Check rotation every 64KB written
 
@@ -458,6 +482,21 @@ export class ManagedProcess {
         const { done, value } = await writer.read();
         if (done) break;
         
+        const message = decoder.decode(value);
+        
+        // Emit log event
+        this.eventEmitter.emit(createEvent(
+          EventTypeValues.PROCESS_LOG,
+          'ManagedProcess',
+          {
+            processName: this.config.name,
+            instanceId: this.instanceId,
+            message,
+            type,
+          },
+          EventPriorityValues.LOW
+        ));
+
         // @ts-ignore - Bun.write supports append in newer versions
         await Bun.write(path, value, { append: true });
         

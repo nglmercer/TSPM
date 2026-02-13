@@ -207,6 +207,12 @@ export const TSPMConfigSchema = type({
   'webhooks?': WebhookConfigSchema.array(),
   /** Enable structured JSON logging */
   'structuredLogging?': 'boolean',
+  /** API configuration */
+  'api?': {
+    'enabled?': 'boolean',
+    'port?': 'number',
+    'host?': 'string',
+  },
 });
 
 /**

@@ -101,6 +101,7 @@ export interface ProcessRestartEvent extends BaseEvent {
     instanceId: number;
     restartCount: number;
     delay?: number;
+    reason?: 'manual' | 'watch' | 'auto';
   };
 }
 
