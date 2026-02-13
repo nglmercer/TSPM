@@ -1,0 +1,12 @@
+processes:
+  - name: "web-server"
+    script: "bun"
+    args: ["run", "examples/dummy-server.ts"]
+    env:
+      PORT: "3000"
+    autorestart: true
+
+  - name: "worker"
+    script: "bun"
+    args: ["run", "examples/dummy-worker.ts"]
+    autorestart: true
