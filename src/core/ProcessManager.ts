@@ -48,6 +48,34 @@ export class ProcessManager {
   }
 
   /**
+   * Get all processes in a specific namespace
+   * @param namespace Namespace to filter by
+   */
+  getProcessesByNamespace(namespace: string): ManagedProcess[] {
+    return Array.from(this.processes.values()).filter(
+        p => p.getConfig().namespace === namespace
+    );
+  }
+
+  /**
+   * Remove all processes in a namespace
+   * @param namespace Namespace to remove
+   */
+  removeByNamespace(namespace: string): void {
+    const procs = this.getProcessesByNamespace(namespace);
+    for (const proc of procs) {
+        // Find the key in the map to delete it
+        for (const [key, p] of this.processes.entries()) {
+            if (p === proc) {
+                proc.stop();
+                this.processes.delete(key);
+                break;
+            }
+        }
+    }
+  }
+
+  /**
    * Start all managed processes
    */
   async startAll(): Promise<void> {
@@ -69,8 +97,11 @@ export class ProcessManager {
    * Get status of all managed processes
    * @returns Array of process statuses
    */
-  getStatuses(): ProcessStatus[] {
-    return Array.from(this.processes.values()).map(p => p.getStatus());
+  getStatuses(): (ProcessStatus & { namespace?: string })[] {
+    return Array.from(this.processes.values()).map(p => ({
+        ...p.getStatus(),
+        namespace: p.getConfig().namespace
+    }));
   }
 
   /**

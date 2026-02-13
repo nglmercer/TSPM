@@ -1,6 +1,8 @@
 import { spawn, type Subprocess } from "bun";
 import type { ProcessConfig, ProcessStatus } from "./types";
 import { ENV_VARS } from "../utils/config/constants";
+import { getProcessStats, type ProcessStats } from "../utils/stats";
+import { LogManager } from "../utils/logger";
 
 export class ManagedProcess {
   private subprocess?: Subprocess;
@@ -8,6 +10,7 @@ export class ManagedProcess {
   private instanceId: number;
   private restartCount = 0;
   private isManuallyStopped = false;
+  private lastStats: ProcessStats | null = null;
 
   constructor(config: ProcessConfig, instanceId = 0) {
     this.config = config;
@@ -29,7 +32,7 @@ export class ManagedProcess {
   async start(): Promise<void> {
     this.isManuallyStopped = false;
     const name = this.fullProcessName;
-    console.log(`[TSPM] Starting process: ${name} (instance: ${this.instanceId})`);
+    console.log(LogManager.formatMessage(`[TSPM] Starting process: ${name} (instance: ${this.instanceId})`));
     
     const stdoutPath = this.config.stdout;
     const stderrPath = this.config.stderr;
@@ -38,6 +41,13 @@ export class ManagedProcess {
     if (stdoutPath) {
       const dir = stdoutPath.split("/").slice(0, -1).join("/");
       if (dir) await Bun.write(Bun.file(`${dir}/.keep`), "");
+      // Initial check for rotation
+      LogManager.rotate(stdoutPath);
+    }
+    if (stderrPath) {
+        const dir = stderrPath.split("/").slice(0, -1).join("/");
+        if (dir) await Bun.write(Bun.file(`${dir}/.keep`), "");
+        LogManager.rotate(stderrPath);
     }
 
     this.subprocess = spawn({
@@ -64,21 +74,29 @@ export class ManagedProcess {
   }
 
   /**
-   * Stream process output to a file
+   * Stream process output to a file with rotation
    */
   private async streamToFile(stream: ReadableStream, path: string): Promise<void> {
     const writer = stream.getReader();
-    // Using a persistent file handle for performance
-    const fileHandle = Bun.file(path);
+    let bytesWritten = 0;
+    const rotateThreshold = 64 * 1024; // Check rotation every 64KB written
+
     try {
       while (true) {
         const { done, value } = await writer.read();
         if (done) break;
+        
         // @ts-ignore - Bun.write supports append in newer versions
-        await Bun.write(fileHandle, value, { append: true });
+        await Bun.write(path, value, { append: true });
+        
+        bytesWritten += value.length;
+        if (bytesWritten >= rotateThreshold) {
+            LogManager.rotate(path);
+            bytesWritten = 0;
+        }
       }
     } catch (e) {
-      console.error(`[TSPM] Error writing to ${path}: ${e}`);
+      console.error(LogManager.formatMessage(`[TSPM] Error writing to ${path}: ${e}`));
     }
   }
 
@@ -94,15 +112,15 @@ export class ManagedProcess {
     if (this.isManuallyStopped) return;
 
     if (error) {
-      console.error(`[TSPM] Process ${name} error: ${error.message}`);
+      console.error(LogManager.formatMessage(`[TSPM] Process ${name} error: ${error.message}`));
     }
 
-    console.log(`[TSPM] Process ${name} exited with code ${exitCode}`);
+    console.log(LogManager.formatMessage(`[TSPM] Process ${name} exited with code ${exitCode}`));
     
     if (this.config.autorestart !== false) {
       this.restartCount++;
       const delay = Math.min(1000 * Math.pow(2, this.restartCount), 30000); // Exponential backoff
-      console.log(`[TSPM] Restarting ${name} in ${delay}ms...`);
+      console.log(LogManager.formatMessage(`[TSPM] Restarting ${name} in ${delay}ms...`));
       setTimeout(() => this.start(), delay);
     }
   }
@@ -115,7 +133,7 @@ export class ManagedProcess {
     this.isManuallyStopped = true;
     if (this.subprocess) {
       this.subprocess.kill();
-      console.log(`[TSPM] Stopped process: ${name}`);
+      console.log(LogManager.formatMessage(`[TSPM] Stopped process: ${name}`));
     }
   }
 
@@ -131,6 +149,20 @@ export class ManagedProcess {
       exitCode: exitCode !== null ? exitCode : undefined,
     };
   }
+
+  /**
+   * Get real-time stats for the process
+   */
+  async getStats(): Promise<ProcessStats | null> {
+    if (!this.subprocess || !this.subprocess.pid) return null;
+    
+    const stats = await getProcessStats(this.subprocess.pid);
+    if (stats) {
+        this.lastStats = stats;
+    }
+    return stats;
+  }
+}
 
   /**
    * Get the process configuration

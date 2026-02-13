@@ -1,14 +1,15 @@
 /**
  * TSPM CLI - Command Line Interface
+ * A professional CLI for process management using Commander.js
  * Provides commands for process management similar to PM2
  */
 
-import { parseArgs } from 'util';
-import { ConfigLoader, ProcessManager, ProcessStatus } from '../core';
+import { Command } from 'commander';
+import { ConfigLoader, ProcessManager } from '../core';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { DEFAULT_PROCESS_CONFIG, PROCESS_STATE, EXIT_CODES } from '../utils/config/constants';
-import type { TSPMConfig } from '../utils/config/schema';
+import type { ProcessConfig } from '../core/types';
 
 // CLI State directory
 const TSPM_HOME = process.env.TSPM_HOME || join(process.env.HOME || '.', '.tspm');
@@ -25,10 +26,14 @@ interface ProcessDaemonStatus {
   [key: string]: {
     pid: number;
     startedAt: number;
-    config: any;
+    config: ProcessConfig;
     state: string;
   };
 }
+
+// ============================================================================
+// File System Helpers
+// ============================================================================
 
 /**
  * Ensure TSPM home directory exists
@@ -48,7 +53,7 @@ function readDaemonStatus(): DaemonStatus | null {
       const content = readFileSync(DAEMON_PID_FILE, 'utf-8');
       return JSON.parse(content);
     }
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
   return null;
@@ -70,7 +75,7 @@ function readProcessStatus(): ProcessDaemonStatus {
     if (existsSync(STATUS_FILE)) {
       return JSON.parse(readFileSync(STATUS_FILE, 'utf-8'));
     }
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
   return {};
@@ -87,7 +92,7 @@ function writeProcessStatus(status: ProcessDaemonStatus): void {
 /**
  * Update process status in daemon
  */
-function updateProcessStatus(name: string, data: any): void {
+function updateProcessStatus(name: string, data: ProcessDaemonStatus[string]): void {
   const status = readProcessStatus();
   status[name] = data;
   writeProcessStatus(status);
@@ -102,46 +107,50 @@ function removeProcessStatus(name: string): void {
   writeProcessStatus(status);
 }
 
-/**
- * Start command - Start a process
- */
-async function cmdStart(args: string[]): Promise<void> {
-  const { values, positionals } = parseArgs({
-    args: args,
-    options: {
-      config: { type: 'string', short: 'c' },
-      name: { type: 'string', short: 'n' },
-      watch: { type: 'boolean', short: 'w', default: false },
-      daemon: { type: 'boolean', short: 'd', default: false },
-      env: { type: 'string', multiple: true },
-    },
-    allowPositionals: true,
-  });
+// ============================================================================
+// CLI Commands
+// ============================================================================
 
-  // Use positional argument or --config option, default to tspm.yaml
-  const configPath = (positionals[0] as string) || (values.config as string) || 'tspm.yaml';
-  const processName = values.name as string | undefined;
+/**
+ * Start command - Start one or more processes
+ */
+async function startCommand(
+  configFile: string,
+  options: {
+    name?: string;
+    watch?: boolean;
+    daemon?: boolean;
+    env?: string[];
+  }
+): Promise<void> {
+  // Use default config file if not specified
+  const configPath = configFile || 'tspm.yaml';
+
+  console.log(`[TSPM] Loading configuration from: ${configPath}`);
 
   try {
     const config = await ConfigLoader.load(configPath);
     const manager = new ProcessManager();
-    
+
     // Determine which processes to start
-    const processesToStart = processName 
-      ? config.processes.filter(p => p.name === processName)
+    const processesToStart = options.name
+      ? config.processes.filter(p => p.name === options.name)
       : config.processes;
 
     if (processesToStart.length === 0) {
-      console.error(`[TSPM] No process found: ${processName}`);
+      const nameMsg = options.name ? ` with name '${options.name}'` : '';
+      console.error(`[TSPM] No process found${nameMsg} in config file: ${configPath}`);
       process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
     }
+
+    console.log(`[TSPM] Starting ${processesToStart.length} process(es)...`);
 
     for (const procConfig of processesToStart) {
       manager.addProcess(procConfig);
     }
-    
+
     await manager.startAll();
-    
+
     // Update status for each process
     for (const procConfig of processesToStart) {
       const proc = manager.getProcess(procConfig.name);
@@ -153,21 +162,23 @@ async function cmdStart(args: string[]): Promise<void> {
           config: procConfig,
           state: status.state || PROCESS_STATE.RUNNING,
         });
-        console.log(`[TSPM] Started: ${procConfig.name} (pid: ${status.pid})`);
+        console.log(`[TSPM] ✓ Started: ${procConfig.name} (pid: ${status.pid})`);
       }
     }
 
     // Save config reference
-    if (!existsSync(TSPM_HOME)) {
-      mkdirSync(TSPM_HOME, { recursive: true });
-    }
-    writeFileSync(join(TSPM_HOME, 'last-config.json'), JSON.stringify({ configPath, processes: config.processes.map(p => p.name) }));
+    ensureTSPMHome();
+    writeFileSync(
+      join(TSPM_HOME, 'last-config.json'),
+      JSON.stringify({ configPath, processes: config.processes.map(p => p.name) })
+    );
 
-    if (values.daemon) {
+    if (options.daemon) {
       console.log(`[TSPM] Running in daemon mode`);
       writeDaemonStatus({ pid: process.pid, startedAt: Date.now(), configFile: configPath });
     }
 
+    console.log(`[TSPM] All processes started successfully`);
   } catch (error) {
     console.error(`[TSPM] Failed to start: ${error}`);
     process.exit(EXIT_CODES.PROCESS_START_FAILED);
@@ -175,115 +186,124 @@ async function cmdStart(args: string[]): Promise<void> {
 }
 
 /**
- * Stop command - Stop a process
+ * Stop command - Stop one or all processes
  */
-async function cmdStop(args: string[]): Promise<void> {
-  const { values } = parseArgs({
-    args: args,
-    options: {
-      all: { type: 'boolean', short: 'a', default: false },
-    },
-  });
-
+function stopCommand(options: { all?: boolean; name?: string }): void {
   const status = readProcessStatus();
-  
-  if (values.all || Object.keys(status).length === 0) {
+
+  if (Object.keys(status).length === 0) {
+    console.log('[TSPM] No processes to stop');
+    return;
+  }
+
+  if (options.all || (!options.name && Object.keys(status).length > 0)) {
     // Stop all processes
-    const allStatus = readProcessStatus();
-    for (const name of Object.keys(allStatus)) {
+    console.log('[TSPM] Stopping all processes...');
+    for (const [name, data] of Object.entries(status)) {
       try {
-        process.kill(allStatus[name].pid, 'SIGTERM');
+        process.kill(data.pid, 'SIGTERM');
         removeProcessStatus(name);
-        console.log(`[TSPM] Stopped: ${name}`);
+        console.log(`[TSPM] ✓ Stopped: ${name}`);
       } catch (e) {
         console.error(`[TSPM] Failed to stop ${name}: ${e}`);
       }
     }
     console.log('[TSPM] All processes stopped');
-  } else {
+  } else if (options.name) {
     // Stop specific process
-    for (const name of Object.keys(status)) {
+    const data = status[options.name];
+    if (data) {
       try {
-        process.kill(status[name].pid, 'SIGTERM');
-        removeProcessStatus(name);
-        console.log(`[TSPM] Stopped: ${name}`);
+        process.kill(data.pid, 'SIGTERM');
+        removeProcessStatus(options.name);
+        console.log(`[TSPM] ✓ Stopped: ${options.name}`);
       } catch (e) {
-        console.error(`[TSPM] Failed to stop ${name}: ${e}`);
+        console.error(`[TSPM] Failed to stop ${options.name}: ${e}`);
+        process.exit(EXIT_CODES.ERROR);
       }
+    } else {
+      console.error(`[TSPM] Process not found: ${options.name}`);
+      process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
     }
   }
 }
 
 /**
- * Restart command - Restart a process
+ * Restart command - Restart one or all processes
  */
-async function cmdRestart(args: string[]): Promise<void> {
-  const { values } = parseArgs({
-    args: args,
-    options: {
-      all: { type: 'boolean', short: 'a', default: false },
-    },
-  });
+async function restartCommand(
+  configFile: string,
+  options: { all?: boolean; name?: string }
+): Promise<void> {
+  // First stop
+  stopCommand({ all: true });
 
-  // Stop first
-  await cmdStop(args);
-  
   // Then start
-  await cmdStart(args);
+  await startCommand(configFile, { name: options.name });
 }
 
 /**
  * List command - List all managed processes
  */
-function cmdList(): void {
+function listCommand(): void {
   const status = readProcessStatus();
-  
+  const processes = Object.entries(status);
+
+  if (processes.length === 0) {
+    console.log('\n┌─────────────────────────────────────────────────────────────┐');
+    console.log('│                    TSPM Process List                        │');
+    console.log('├─────────────────────────────────────────────────────────────┤');
+    console.log('│  No processes running                                      │');
+    console.log('└─────────────────────────────────────────────────────────────┘\n');
+    return;
+  }
+
   console.log('\n┌─────┬──────────────────────┬─────────────┬────────────┬─────────────┬──────────────┐');
   console.log('│ id  │ name                 │ mode       │ pid        │ status      │ restarts    │');
   console.log('├─────┼──────────────────────┼─────────────┼────────────┼─────────────┼──────────────┤');
-  
+
   let index = 0;
-  for (const [name, data] of Object.entries(status)) {
+  for (const [name, data] of processes) {
     const pidStr = data.pid?.toString() || '-';
     const statusStr = data.state?.toUpperCase() || 'UNKNOWN';
     const restartStr = '0';
-    
-    console.log(`│ ${String(index).padStart(3)} │ ${name.substring(0, 20).padEnd(20)} │ fork        │ ${pidStr.padEnd(10)} │ ${statusStr.padEnd(10)} │ ${restartStr.padEnd(11)} │`);
+
+    console.log(
+      `│ ${String(index).padStart(3)} │ ${name.substring(0, 20).padEnd(20)} │ fork        │ ${pidStr.padEnd(10)} │ ${statusStr.padEnd(10)} │ ${restartStr.padEnd(11)} │`
+    );
     index++;
   }
-  
+
   console.log('└─────┴──────────────────────┴─────────────┴────────────┴─────────────┴──────────────┘');
-  console.log(`\n Total processes: ${Object.keys(status).length}\n`);
+  console.log(`\n Total processes: ${processes.length}\n`);
 }
 
 /**
  * Logs command - Show logs for a process
  */
-function cmdLogs(args: string[]): void {
-  const { values } = parseArgs({
-    args: args,
-    options: {
-      lines: { type: 'string', short: 'n', default: '50' },
-      raw: { type: 'boolean', short: 'r', default: false },
-    },
-  });
-
+function logsCommand(options: { name?: string; lines?: number; raw?: boolean }): void {
   const status = readProcessStatus();
   const logDir = DEFAULT_PROCESS_CONFIG.logDir;
-  
-  for (const name of Object.keys(status)) {
+  const numLines = options.lines || 50;
+
+  const processNames = options.name ? [options.name] : Object.keys(status);
+
+  for (const name of processNames) {
     const logPath = join(logDir, `${name}.log`);
     if (existsSync(logPath)) {
-      console.log(`\n=== ${name} ===`);
+      if (!options.raw) {
+        console.log(`\n=== ${name} (last ${numLines} lines) ===`);
+      }
       try {
         const content = readFileSync(logPath, 'utf-8');
         const lines = content.split('\n');
-        const numLines = parseInt(values.lines as string) || 50;
         const showLines = lines.slice(-numLines);
         console.log(showLines.join('\n'));
       } catch (e) {
         console.error(`[TSPM] Failed to read logs for ${name}: ${e}`);
       }
+    } else {
+      console.log(`[TSPM] No log file found for: ${name}`);
     }
   }
 }
@@ -291,23 +311,18 @@ function cmdLogs(args: string[]): void {
 /**
  * Describe command - Show detailed info about a process
  */
-function cmdDescribe(args: string[]): Promise<void> {
-  const { values } = parseArgs({
-    args: args,
-    options: {
-      name: { type: 'string', short: 'n' },
-    },
-  });
-
-  const name = values.name as string;
+function describeCommand(name: string): void {
   const status = readProcessStatus();
-  
+
   if (!name || !status[name]) {
     console.error(`[TSPM] Process not found: ${name}`);
     process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
   }
 
   const proc = status[name];
+  const uptime = proc.startedAt ? Math.floor((Date.now() - proc.startedAt) / 1000) : 0;
+  const uptimeStr = uptime > 0 ? `${uptime}s` : '-';
+
   console.log(`
 ┌─────────────────────────┬──────────────────────┐
 │ field                  │ value                │
@@ -317,148 +332,219 @@ function cmdDescribe(args: string[]): Promise<void> {
 │ status                 │ ${(proc.state || 'unknown').toUpperCase().padEnd(22)} │
 │ mode                   │ fork                 │
 │ restarts               │ 0                    │
-│ uptime                 │ ${proc.startedAt ? Math.floor((Date.now() - proc.startedAt) / 1000) + 's' : '-'.padEnd(22)} │
+│ uptime                 │ ${uptimeStr.padEnd(22)} │
 │ watch                  │ disabled             │
 └─────────────────────────┴──────────────────────┘
   `);
-  
-  return Promise.resolve();
 }
 
 /**
  * Delete command - Delete a process from the list
  */
-function cmdDelete(args: string[]): Promise<void> {
-  const { values } = parseArgs({
-    args: args,
-    options: {
-      all: { type: 'boolean', short: 'a', default: false },
-    },
-  });
+function deleteCommand(options: { all?: boolean; name?: string }): void {
+  const status = readProcessStatus();
 
-  if (values.all) {
+  if (options.all) {
     // Delete all
-    const status = readProcessStatus();
+    console.log('[TSPM] Deleting all processes...');
     for (const name of Object.keys(status)) {
       removeProcessStatus(name);
-      console.log(`[TSPM] Deleted: ${name}`);
+      console.log(`[TSPM] ✓ Deleted: ${name}`);
     }
-  } else {
-    // Delete by name (first argument after delete)
-    const name = args[0];
-    if (name && readProcessStatus()[name]) {
-      removeProcessStatus(name);
-      console.log(`[TSPM] Deleted: ${name}`);
+  } else if (options.name) {
+    if (status[options.name]) {
+      removeProcessStatus(options.name);
+      console.log(`[TSPM] ✓ Deleted: ${options.name}`);
     } else {
-      console.error('[TSPM] Please specify a process name or use --all');
+      console.error(`[TSPM] Process not found: ${options.name}`);
       process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
     }
+  } else {
+    console.error('[TSPM] Please specify a process name or use --all');
+    process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
   }
-  
-  return Promise.resolve();
 }
 
 /**
  * Reload command - Reload process(es)
  */
-async function cmdReload(args: string[]): Promise<void> {
+async function reloadCommand(
+  configFile: string,
+  options: { all?: boolean; name?: string }
+): Promise<void> {
   // Reload is essentially restart but preserving some state
-  await cmdRestart(args);
+  await restartCommand(configFile, options);
 }
 
 /**
  * Monit command - Real-time monitoring (simplified)
  */
-function cmdMonit(): void {
+function monitCommand(): void {
   const status = readProcessStatus();
-  
+  const processes = Object.entries(status);
+
   console.clear();
   console.log('┌─────────────────────────────────────────────────────────────┐');
   console.log('│                    TSPM Process Monitor                    │');
   console.log('├─────────────────────────────────────────────────────────────┤');
   console.log('│  name                 │ status    │ cpu    │ memory         │');
   console.log('├───────────────────────┼───────────┼────────┼────────────────┤');
-  
-  for (const [name, data] of Object.entries(status)) {
-    const statusStr = (data.state || 'unknown').toUpperCase().padEnd(9);
-    console.log(`│ ${name.substring(0, 21).padEnd(21)} │ ${statusStr} │ -       │ -              │`);
+
+  if (processes.length === 0) {
+    console.log('│  No processes running                                      │');
+  } else {
+    for (const [name, data] of processes) {
+      const statusStr = (data.state || 'unknown').toUpperCase().padEnd(9);
+      console.log(
+        `│ ${name.substring(0, 21).padEnd(21)} │ ${statusStr} │ -       │ -              │`
+      );
+    }
   }
-  
+
   console.log('└─────────────────────────────────────────────────────────────┘');
-  console.log(`\nMonitoring ${Object.keys(status).length} process(es). Press Ctrl+C to exit.`);
+  console.log(`\nMonitoring ${processes.length} process(es). Press Ctrl+C to exit.`);
 }
 
 /**
- * Print help message
+ * Set up the CLI program using Commander.js
  */
-function printHelp(): void {
-  console.log(`
-TSPM - TypeScript Process Manager
+function createProgram(): Command {
+  const program = new Command();
 
-Usage: tspm <command> [options]
+  program
+    .name('tspm')
+    .description('TSPM - TypeScript Process Manager\nA CLI for managing TypeScript/Node.js processes similar to PM2')
+    .version('1.0.0')
+    .configureHelp({
+      showGlobalOptions: true,
+    });
 
-Commands:
-  start <file>         Start a process/ecosystem file
-  stop                 Stop a process (or all if --all)
-  restart              Restart a process (or all if --all)
-  reload               Reload process(es) without downtime
-  delete               Delete a process from the list
-  list                 List all managed processes
-  logs                 Show logs for a process
-  monit                Real-time process monitoring
-  describe             Show detailed process information
-  help                 Show this help message
+  // Start command
+  program
+    .command('start')
+    .description('Start a process or ecosystem file')
+    .argument('[config-file]', 'Configuration file path (default: tspm.yaml)', 'tspm.yaml')
+    .option('-n, --name <name>', 'Start only the specified process by name')
+    .option('-w, --watch', 'Enable file watching for auto-restart', false)
+    .option('-d, --daemon', 'Run in daemon mode (background)', false)
+    .option('-e, --env <env...>', 'Environment variables to set')
+    .action(startCommand);
 
-Options:
-  -c, --config <file>  Configuration file path
-  -n, --name <name>    Process name
-  -a, --all            Apply to all processes
-  -w, --watch          Enable file watching
-  -d, --daemon         Run in daemon mode
-  -r, --raw            Raw output for logs
-  --lines <n>          Number of log lines to show
+  // Stop command
+  program
+    .command('stop')
+    .description('Stop a running process')
+    .option('-n, --name <name>', 'Stop only the specified process by name')
+    .option('-a, --all', 'Stop all running processes')
+    .action((options) => {
+      if (!options.name && !options.all) {
+        console.error('[TSPM] Please specify a process name with --name or use --all');
+        process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
+      }
+      stopCommand(options);
+    });
 
-Examples:
-  tspm start tspm.yaml
-  tspm start tspm.yaml --name my-service
-  tspm stop --all
-  tspm list
-  tspm logs --lines 100
-  tspm monit
-  tspm describe --name my-service
-`);
+  // Restart command
+  program
+    .command('restart')
+    .description('Restart a running process')
+    .argument('[config-file]', 'Configuration file path (default: tspm.yaml)', 'tspm.yaml')
+    .option('-n, --name <name>', 'Restart only the specified process by name')
+    .option('-a, --all', 'Restart all processes')
+    .action(restartCommand);
+
+  // Reload command
+  program
+    .command('reload')
+    .description('Reload process(es) without downtime (alias for restart)')
+    .argument('[config-file]', 'Configuration file path (default: tspm.yaml)', 'tspm.yaml')
+    .option('-n, --name <name>', 'Reload only the specified process by name')
+    .option('-a, --all', 'Reload all processes')
+    .action(reloadCommand);
+
+  // Delete command
+  program
+    .command('delete')
+    .description('Delete a process from the list (stops it first if running)')
+    .option('-n, --name <name>', 'Delete the specified process by name')
+    .option('-a, --all', 'Delete all processes')
+    .action((options) => {
+      if (!options.name && !options.all) {
+        console.error('[TSPM] Please specify a process name with --name or use --all');
+        process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
+      }
+      deleteCommand(options);
+    });
+
+  // List command
+  program
+    .command('list')
+    .alias('ls')
+    .description('List all managed processes')
+    .action(listCommand);
+
+  // Logs command
+  program
+    .command('logs')
+    .description('Show logs for a process')
+    .option('-n, --name <name>', 'Show logs for the specified process')
+    .option('-l, --lines <number>', 'Number of lines to show', '50')
+    .option('-r, --raw', 'Raw output (no headers)', false)
+    .action((options) => {
+      logsCommand({
+        name: options.name,
+        lines: parseInt(options.lines, 10),
+        raw: options.raw,
+      });
+    });
+
+  // Describe command
+  program
+    .command('describe')
+    .alias('desc')
+    .description('Show detailed information about a process')
+    .argument('<name>', 'Process name')
+    .action(describeCommand);
+
+  // Monit command
+  program
+    .command('monit')
+    .description('Real-time process monitoring (experimental)')
+    .action(monitCommand);
+
+  // Flush command (clear logs)
+  program
+    .command('flush')
+    .description('Flush all logs')
+    .action(() => {
+      console.log('[TSPM] Log flushing not yet implemented');
+    });
+
+  // Reset command (reset all metrics)
+  program
+    .command('reset')
+    .description('Reset all metrics for a process')
+    .option('-n, --name <name>', 'Reset metrics for the specified process')
+    .option('-a, --all', 'Reset metrics for all processes')
+    .action((options) => {
+      console.log('[TSPM] Metrics reset not yet implemented');
+    });
+
+  return program;
 }
+
+// ============================================================================
+// Main Entry Point
+// ============================================================================
 
 /**
  * Main CLI entry point
  */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
-  const command = argv[0] || 'help';
-  
-  const commands: Record<string, (args: string[]) => Promise<void> | void> = {
-    start: cmdStart,
-    stop: cmdStop,
-    restart: cmdRestart,
-    reload: cmdReload,
-    delete: cmdDelete,
-    list: cmdList,
-    logs: cmdLogs,
-    monit: cmdMonit,
-    describe: cmdDescribe,
-    help: printHelp,
-  };
-
-  const cmd = commands[command];
-  
-  if (!cmd) {
-    console.error(`[TSPM] Unknown command: ${command}`);
-    printHelp();
-    process.exit(EXIT_CODES.ERROR);
-  }
+  const program = createProgram();
 
   try {
-    const args = argv.slice(1);
-    await cmd(args);
+    await program.parseAsync(argv);
   } catch (error) {
     console.error(`[TSPM] Error: ${error}`);
     process.exit(EXIT_CODES.ERROR);

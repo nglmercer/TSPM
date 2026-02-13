@@ -4,6 +4,14 @@
  * @module utils/config
  */
 
+import { 
+  ConfigFormatValues, 
+  type ConfigFormat 
+} from './constants';
+
+// Re-export ConfigFormat type for external use
+export type { ConfigFormat } from './constants';
+
 // YAML utilities
 export {
   parseYamlString,
@@ -77,9 +85,17 @@ export {
   ENV_VARS,
   CONFIG_FILE_EXTENSIONS,
   CONFIG_MIME_TYPES,
+  ProcessStateValues,
+  ConfigFormatValues,
+  ErrorSeverityValues,
   getDefaultLogPath,
   getDefaultPidPath,
   calculateRestartDelay,
+  type ProcessState,
+  type ErrorSeverity,
+  type ExitCode,
+  type Signal,
+  type EnvVar,
 } from './constants';
 
 // Init utilities
@@ -94,23 +110,20 @@ export {
   ConfigBuilder,
   createConfigBuilder,
   SAMPLE_PROCESSES,
+  TemplateTypes,
+  type TemplateType,
   type InitConfigOptions,
   type InitResult,
 } from './init';
 
 /**
- * Supported configuration file formats
- */
-export type ConfigFormat = 'yaml' | 'yml' | 'json' | 'jsonc';
-
-/**
  * Configuration file extensions mapping
  */
-export const CONFIG_EXTENSIONS: Record<ConfigFormat, string[]> = {
-  yaml: ['.yaml'],
-  yml: ['.yml'],
-  json: ['.json'],
-  jsonc: ['.jsonc'],
+export const CONFIG_EXTENSIONS: Record<ConfigFormat, readonly string[]> = {
+  [ConfigFormatValues.YAML]: ['.yaml'],
+  [ConfigFormatValues.YML]: ['.yml'],
+  [ConfigFormatValues.JSON]: ['.json'],
+  [ConfigFormatValues.JSONC]: ['.jsonc'],
 } as const;
 
 /**
@@ -142,12 +155,12 @@ export async function readConfigFile<T = unknown>(path: string): Promise<T> {
   const format = detectConfigFormat(path);
   
   switch (format) {
-    case 'yaml':
-    case 'yml':
+    case ConfigFormatValues.YAML:
+    case ConfigFormatValues.YML:
       const { readYamlFile } = await import('./yaml');
       return readYamlFile<T>(path);
-    case 'json':
-    case 'jsonc':
+    case ConfigFormatValues.JSON:
+    case ConfigFormatValues.JSONC:
       const { readJsonFile } = await import('./json');
       return readJsonFile<T>(path);
     default:
@@ -168,12 +181,12 @@ export async function readConfigFileSafe<T = unknown>(
     const format = detectConfigFormat(path);
     
     switch (format) {
-      case 'yaml':
-      case 'yml':
+      case ConfigFormatValues.YAML:
+      case ConfigFormatValues.YML:
         const { readYamlFileSafe } = await import('./yaml');
         return readYamlFileSafe<T>({ path });
-      case 'json':
-      case 'jsonc':
+      case ConfigFormatValues.JSON:
+      case ConfigFormatValues.JSONC:
         const { readJsonFileSafe } = await import('./json');
         return readJsonFileSafe<T>({ path });
       default:
@@ -203,12 +216,12 @@ export async function writeConfigFile(
   const format = detectConfigFormat(path);
   
   switch (format) {
-    case 'yaml':
-    case 'yml':
+    case ConfigFormatValues.YAML:
+    case ConfigFormatValues.YML:
       const { writeYamlFile } = await import('./yaml');
       return writeYamlFile(path, data);
-    case 'json':
-    case 'jsonc':
+    case ConfigFormatValues.JSON:
+    case ConfigFormatValues.JSONC:
       const { writeJsonFile } = await import('./json');
       return writeJsonFile(path, data);
     default:

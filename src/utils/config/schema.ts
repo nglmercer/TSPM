@@ -49,6 +49,8 @@ export const processConfigSchema = type({
   "cron?": "string",
   /** Kill process on stop signal */
   "killTimeout?": "number",
+  /** Process namespace/group */
+  "namespace?": "string",
   /** Process user (Unix only) */
   "user?": "string",
   /** Process group (Unix only) */
@@ -68,6 +70,8 @@ export const tspmConfigSchema = type({
   processes: processConfigSchema.array(),
   /** Default settings applied to all processes */
   "defaults?": processConfigSchema.partial(),
+  /** Default namespace for all processes */
+  "namespace?": "string",
   /** Log directory for all processes */
   "logDir?": "string",
   /** PID file directory */
@@ -211,6 +215,7 @@ export function normalizeConfig(config: TSPMConfig): TSPMConfig {
     autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
     maxRestarts: DEFAULT_PROCESS_CONFIG.maxRestarts,
     killTimeout: DEFAULT_PROCESS_CONFIG.killTimeout,
+    namespace: config.namespace || 'default',
     ...config.defaults,
   };
 
