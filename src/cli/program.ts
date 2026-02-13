@@ -14,7 +14,9 @@ import {
   clusterCommand,
   scaleCommand,
   groupsCommand,
-  devCommand
+  devCommand,
+  flushCommand,
+  reloadLogsCommand
 } from './commands';
 
 /**
@@ -135,9 +137,30 @@ export function createProgram(): Command {
   // Flush command (clear logs)
   program
     .command('flush')
-    .description('Flush all logs')
-    .action(() => {
-      log.info('[TSPM] Log flushing not yet implemented');
+    .description('Flush all logs (clear log files)')
+    .option('-n, --name <name>', 'Flush logs for the specified process')
+    .option('-a, --all', 'Flush logs for all processes')
+    .option('--err', 'Flush only error logs')
+    .option('--out', 'Flush only output logs')
+    .action((options) => {
+      flushCommand({
+        name: options.name,
+        err: options.err,
+        out: options.out,
+        all: options.all,
+      });
+    });
+
+  // ReloadLogs command (reopen log files)
+  program
+    .command('reloadLogs')
+    .description('Reload log files (reopen for external log rotation)')
+    .option('-n, --name <name>', 'Reload logs for the specified process')
+    .option('-a, --all', 'Reload logs for all processes')
+    .action((options) => {
+      reloadLogsCommand({
+        name: options.name,
+      });
     });
 
   // Reset command (reset all metrics)

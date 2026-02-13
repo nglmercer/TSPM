@@ -6,7 +6,7 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 
 ---
 
-## Current Status: Phase 6 Complete ✅
+## Current Status: Phase 6 Complete ✅ - Phase 7 Planned
 
 ### Implemented Features
 
@@ -30,6 +30,22 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 | **Dotenv Support**       | ✅     | Load environment from .env files                            |
 | **Lifecycle Hooks**      | ✅     | preStart and postStart script execution                     |
 | **Source Maps**          | ✅     | Transparent source map support for stack traces             |
+
+### Missing PM2 Features (Phase 7)
+
+| Feature               | Status | Description                      | Priority |
+| --------------------- | ------ | -------------------------------- | -------- |
+| **Startup scripts**   | ⏳     | Generate systemd/launchd scripts | High     |
+| **Save/Resurrect**    | ⏳     | Persist and restore process list | High     |
+| **Log flush**         | ⏳     | Clear all log files              | High     |
+| **Reset command**     | ⏳     | Reset restart counters           | Medium   |
+| **Deployment**        | ⏳     | Remote deployment via SSH        | Medium   |
+| **Static serve**      | ⏳     | Serve static files               | Medium   |
+| **Prettylist**        | ⏳     | Pretty-printed process list      | Medium   |
+| **Report**            | ⏳     | Diagnostic report generation     | Medium   |
+| **Module system**     | ⏳     | Extensibility via modules        | Low      |
+| **Remote monitoring** | ⏳     | Cloud monitoring dashboard       | Low      |
+| **Custom metrics**    | ⏳     | Application metrics API          | Low      |
 
 ---
 
@@ -93,112 +109,20 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 
 ---
 
-## Test Coverage
+## Phase 3: Monitoring & Observability ✅ (COMPLETED)
 
-### Test Files (42 tests passing)
-
-```
-tests/
-├── core/
-│   ├── ConfigLoader.test.ts     # Config loading tests
-│   ├── ManagedProcess.test.ts   # Process lifecycle tests
-│   └── ProcessManager.test.ts   # Manager tests
-├── cli/
-│   └── index.test.ts           # CLI file operations
-└── utils/config/
-    ├── index.test.ts           # Config utilities
-    ├── json.test.ts            # JSON parsing
-    ├── yaml.test.ts            # YAML parsing
-    ├── schema.test.ts          # Schema validation
-    └── manager.test.ts         # Config manager
-```
-
-### Test Results
-
-```
-✓ 42 tests pass
-✓ 84 expect() calls
-✓ 9 test files
-```
+- [x] Real-time process monitoring (CPU, Memory usage)
+- [x] Structured logging with log rotation
+- [x] Event system with Webhook support
+- [x] Health checks and readiness/liveness probes
 
 ---
 
-## Project Structure
+## Phase 4: Advanced Features ✅ (COMPLETED)
 
-```
-TSPM/
-├── src/
-│   ├── cli/
-│   │   └── index.ts           # CLI commands
-│   ├── core/
-│   │   ├── ConfigLoader.ts    # Config loading
-│   │   ├── ManagedProcess.ts  # Process management
-│   │   ├── ProcessManager.ts # Multi-process manager
-│   │   └── types.ts           # Type definitions
-│   └── utils/
-│       ├── config/
-│       │   ├── constants.ts        # Constants & defaults
-│       │   ├── init.ts            # Initialization
-│       │   ├── json.ts            # JSON utilities
-│       │   ├── manager.ts         # Config manager
-│       │   ├── schema.ts          # Validation schema
-│       │   └── yaml.ts            # YAML utilities
-│       ├── loadbalancer.ts       # Load balancing strategies
-│       ├── events.ts             # Event system
-│       ├── healthcheck.ts        # Health checks
-│       ├── logger.ts            # Logging
-│       └── stats.ts             # Process statistics
-├── tests/                    # Test suite
-├── examples/                # Example scripts
-├── tspm.yaml               # Example config
-└── package.json            # Project config
-```
-
----
-
-## Usage Examples
-
-```bash
-# Start processes
-bun run src/cli/index.ts start tspm.yaml
-
-# List processes
-bun run src/cli/index.ts list
-
-# View logs
-bun run src/cli/index.ts logs
-
-# Stop all
-bun run src/cli/index.ts stop --all
-
-# Show clusters
-bun run src/cli/index.ts cluster
-
-# Show process groups
-bun run src/cli/index.ts groups
-```
-
-### Configuration Example (Phase 2)
-
-```yaml
-processes:
-  - name: api-server
-    script: ./server.js
-    instances: 4
-    lbStrategy: round-robin
-    healthCheck:
-      enabled: true
-      protocol: http
-      path: /health
-      interval: 30000
-      retries: 3
-    clusterGroup: api
-
-  - name: worker
-    script: ./worker.js
-    instances: 2
-    namespace: background-jobs
-```
+- [x] Source map support for stack traces
+- [x] Environment variable management (.env support)
+- [x] Pre/post start scripts and actions
 
 ---
 
@@ -227,15 +151,262 @@ processes:
 
 ---
 
+## Phase 7: PM2 Parity Features ⏳ (PLANNED)
+
+### 7.1: Startup & Persistence
+
+| Command     | Status | Description                        |
+| ----------- | ------ | ---------------------------------- |
+| `startup`   | ⏳     | Generate system startup scripts    |
+| `save`      | ⏳     | Persist current process list       |
+| `resurrect` | ⏳     | Restore processes from saved state |
+| `unstartup` | ⏳     | Remove startup scripts             |
+
+### 7.2: Log Management
+
+| Command      | Status | Description         |
+| ------------ | ------ | ------------------- |
+| `flush`      | ⏳     | Clear all log files |
+| `reloadLogs` | ⏳     | Reopen log files    |
+
+### 7.3: Process Utilities
+
+| Command      | Status | Description                  |
+| ------------ | ------ | ---------------------------- |
+| `reset`      | ⏳     | Reset restart counters       |
+| `prettylist` | ⏳     | Pretty-printed process list  |
+| `serve`      | ⏳     | Static file server           |
+| `report`     | ⏳     | Diagnostic report generation |
+
+### 7.4: Deployment System
+
+| Feature           | Status | Description                 |
+| ----------------- | ------ | --------------------------- |
+| `deploy` command  | ⏳     | Remote deployment via SSH   |
+| Pre-deploy hooks  | ⏳     | Scripts before deployment   |
+| Post-deploy hooks | ⏳     | Scripts after deployment    |
+| Multi-environment | ⏳     | Staging, production support |
+
+### 7.5: Additional Config Options
+
+| Option           | Status | Description                    |
+| ---------------- | ------ | ------------------------------ |
+| `kill_timeout`   | ⏳     | Time before force kill (ms)    |
+| `listen_timeout` | ⏳     | Timeout for listen event (ms)  |
+| `wait_ready`     | ⏳     | Wait for ready signal from app |
+| `max_restarts`   | ⏳     | Max restarts before stopped    |
+| `autorestart`    | ⏳     | Enable/disable auto restart    |
+| `watch_delay`    | ⏳     | Debounce for watch (ms)        |
+| `instance_var`   | ⏳     | Instance variable name         |
+| `merge_logs`     | ⏳     | Merge logs from all instances  |
+
+### 7.6: Module System (Low Priority)
+
+| Feature              | Status | Description         |
+| -------------------- | ------ | ------------------- |
+| `install <module>`   | ⏳     | Install TSPM module |
+| `uninstall <module>` | ⏳     | Remove TSPM module  |
+| Module API           | ⏳     | Extension API       |
+
+### 7.7: Remote Monitoring (Low Priority)
+
+| Feature          | Status | Description             |
+| ---------------- | ------ | ----------------------- |
+| `link` command   | ⏳     | Connect to TSPM Cloud   |
+| Remote dashboard | ⏳     | Web-based monitoring    |
+| Custom metrics   | ⏳     | Application metrics API |
+| Historical data  | ⏳     | Metrics storage         |
+
+---
+
+## Test Coverage
+
+### Test Files (47 tests passing)
+
+```
+tests/
+├── core/
+│   ├── ConfigLoader.test.ts     # Config loading tests
+│   ├── ManagedProcess.test.ts   # Process lifecycle tests
+│   ├── ManagedProcessExtra.test.ts # Extra process tests
+│   ├── ManagedProcessHooks.test.ts # Hook tests
+│   ├── ProcessManager.test.ts   # Manager tests
+│   ├── ProcessRegistry.test.ts  # Registry tests
+│   └── ClusterManager.test.ts   # Cluster tests
+├── cli/
+│   └── index.test.ts           # CLI file operations
+└── utils/
+    ├── events.test.ts          # Event system tests
+    ├── healthcheck.test.ts     # Health check tests
+    ├── loadbalancer.test.ts    # Load balancer tests
+    ├── logger.test.ts          # Logger tests
+    ├── monitoring.test.ts      # Monitoring tests
+    ├── stats.test.ts           # Stats tests
+    └── config/
+        ├── index.test.ts       # Config utilities
+        ├── json.test.ts        # JSON parsing
+        ├── yaml.test.ts        # YAML parsing
+        ├── schema.test.ts      # Schema validation
+        └── manager.test.ts     # Config manager
+```
+
+### Test Results
+
+```
+✓ 47 tests pass
+✓ Multiple expect() calls
+✓ 17 test files
+```
+
+---
+
+## Project Structure
+
+```
+TSPM/
+├── src/
+│   ├── cli/
+│   │   ├── index.ts           # CLI entry point
+│   │   ├── program.ts         # CLI program setup
+│   │   ├── commands/          # CLI commands
+│   │   │   ├── cluster.ts     # Cluster command
+│   │   │   ├── describe.ts    # Describe command
+│   │   │   ├── dev.ts         # Dev command
+│   │   │   ├── groups.ts      # Groups command
+│   │   │   ├── list.ts        # List command
+│   │   │   ├── logs.ts        # Logs command
+│   │   │   ├── monit.ts       # Monit command
+│   │   │   ├── scale.ts       # Scale command
+│   │   │   ├── start.ts       # Start command
+│   │   │   └── stop.ts        # Stop command
+│   │   ├── state/             # State management
+│   │   └── ui/                # UI components
+│   ├── core/
+│   │   ├── ClusterManager.ts  # Cluster management
+│   │   ├── ConfigLoader.ts    # Config loading
+│   │   ├── ManagedProcess.ts  # Process management
+│   │   ├── ProcessManager.ts  # Multi-process manager
+│   │   ├── ProcessEnvManager.ts # Environment management
+│   │   ├── ProcessLogStreamer.ts # Log streaming
+│   │   ├── ProcessRegistry.ts # Process registry
+│   │   ├── ProcessWatcher.ts  # File watching
+│   │   ├── constants.ts       # Core constants
+│   │   ├── index.ts           # Core exports
+│   │   └── types.ts           # Type definitions
+│   └── utils/
+│       ├── api.ts             # REST API
+│       ├── constants.ts       # Utility constants
+│       ├── logger.ts          # Logging utilities
+│       ├── monitoring.ts      # Process monitoring
+│       ├── stats.ts           # Process statistics
+│       ├── webhooks.ts        # Webhook support
+│       ├── config/            # Config utilities
+│       ├── events/            # Event system
+│       ├── healthcheck/       # Health checks
+│       └── loadbalancer/      # Load balancing
+├── tests/                     # Test suite
+├── examples/                  # Example scripts
+│   ├── applications/          # Example apps
+│   └── config/                # Example configs
+├── docs/                      # Documentation
+├── tspm.yaml                  # Example config
+└── package.json               # Project config
+```
+
+---
+
+## Usage Examples
+
+```bash
+# Start processes
+bun run src/cli/index.ts start tspm.yaml
+
+# List processes
+bun run src/cli/index.ts list
+
+# View logs
+bun run src/cli/index.ts logs
+
+# Stop all
+bun run src/cli/index.ts stop --all
+
+# Show clusters
+bun run src/cli/index.ts cluster
+
+# Show process groups
+bun run src/cli/index.ts groups
+
+# Development mode with hot reload
+bun run src/cli/index.ts dev tspm.yaml
+```
+
+### Configuration Example (Phase 2)
+
+```yaml
+processes:
+  - name: api-server
+    script: ./server.js
+    instances: 4
+    lbStrategy: round-robin
+    healthCheck:
+      enabled: true
+      protocol: http
+      path: /health
+      interval: 30000
+      retries: 3
+    clusterGroup: api
+
+  - name: worker
+    script: ./worker.js
+    instances: 2
+    namespace: background-jobs
+```
+
+---
+
+## PM2 Feature Parity Status
+
+### Completed ✅
+
+- Process lifecycle management (start, stop, restart, reload, delete)
+- Process clustering with multiple instances
+- Load balancing (7 strategies)
+- Health checks (HTTP, TCP, command)
+- Real-time monitoring (monit command)
+- Log management with rotation
+- Hot reload / file watching
+- Environment variables (.env support)
+- Source map support
+- Webhook notifications
+- Lifecycle hooks (preStart, postStart)
+- Memory limits and OOM detection
+- Process priority (nice values)
+- Container orchestration hints
+
+### In Progress / Planned ⏳
+
+- Startup scripts generation (systemd, launchd)
+- Process persistence (save/resurrect)
+- Log flush command
+- Reset restart counters
+- Deployment system
+- Static file server
+- Module system
+- Remote monitoring
+
+---
+
 ## Next Steps
 
-1. Run `bun run src/cli/index.ts start tspm.yaml` to test
-2. Try `bun run src/cli/index.ts list` to see running processes
-3. Try `bun run src/cli/index.ts cluster` to see cluster information
-4. Add more test cases as features are implemented
+1. Implement `startup` command for systemd/launchd generation
+2. Implement `save` and `resurrect` commands
+3. Add `flush` command for log management
+4. Add `reset` command for restart counters
+5. Consider deployment system implementation
 
 ---
 
 _Last Updated: 2026-02-13_
 _Total Tests: 47 passing_
-_Phase 5 Complete: Hot Reload, API, Dev Mode, Resource Management_
+_Phase 6 Complete: Memory Limits, Priority, Container Support_
+_Next: Phase 7 - PM2 Parity Features (Startup, Save, Flush, Reset)_

@@ -116,29 +116,108 @@ processes:
 
 ---
 
-## Recommended Next Steps
+## Phase 7: PM2 Parity Features (Planned)
 
-Start with **Phase 3** - Enhance monitoring and observability:
+### 7.1: Startup & Persistence (High Priority)
 
-1. Enhance the `monit` command with auto-refresh
-2. Add log rotation based on file size
-3. Implement structured JSON logging
-4. Add webhook support for event notifications
+- [ ] `startup` command - Generate system startup scripts (systemd, launchd, openrc)
+- [ ] `save` command - Persist current process list
+- [ ] `resurrect` command - Restore processes from saved state
+- [ ] `unstartup` command - Remove startup scripts
+
+### 7.2: Log Management (High Priority)
+
+- [x] `flush` command - Clear all log files
+- [x] `reloadLogs` command - Reopen log files (for log rotation external tools)
+- [ ] Log streaming to external services (Loggly, Papertrail, etc.)
+
+### 7.3: Process Utilities (Medium Priority)
+
+- [ ] `reset` command - Reset process restart counters
+- [ ] `prettylist` command - Pretty-printed JSON process list
+- [ ] `serve <path> <port>` command - Static file server
+- [ ] `report` command - Generate diagnostic report
+
+### 7.4: Deployment System (Medium Priority)
+
+- [ ] `deploy` command - Remote deployment with SSH
+- [ ] Deployment configuration in ecosystem file
+- [ ] Pre-deploy/post-deploy hooks
+- [ ] Multi-environment support (staging, production)
+
+### 7.5: Additional Configuration Options
+
+```yaml
+processes:
+  - name: my-app
+    script: ./app.js
+    # New options to implement:
+    kill_timeout: 1600 # Time before force kill (ms)
+    listen_timeout: 3000 # Timeout for listen event (ms)
+    wait_ready: false # Wait for ready signal from app
+    max_restarts: 10 # Max restarts before stopped
+    autorestart: true # Enable/disable auto restart
+    watch_delay: 100 # Debounce for watch (ms)
+    instance_var: "NODE_APP_INSTANCE" # Instance variable name
+    merge_logs: false # Merge logs from all instances
+```
+
+### 7.6: Module System (Low Priority)
+
+- [ ] `install <module>` command - Install TSPM module
+- [ ] `uninstall <module>` command - Remove TSPM module
+- [ ] Module API for extensions
+- [ ] Community modules support
+
+### 7.7: Remote Monitoring (Low Priority)
+
+- [ ] `link` command - Connect to TSPM Cloud
+- [ ] Real-time remote monitoring dashboard
+- [ ] Custom metrics API (similar to @pm2/io)
+- [ ] Historical metrics storage
 
 ---
 
 ## Implementation Priority
 
-| Priority | Feature                | Phase   |
-| -------- | ---------------------- | ------- |
-| High     | Enhanced monitoring    | Phase 3 |
-| High     | Log rotation           | Phase 3 |
-| Medium   | Source map support     | Phase 4 |
-| Medium   | Environment management | Phase 4 |
-| Low      | Hot reload             | Phase 5 |
-| Low      | Interactive TUI        | Phase 5 |
+| Priority | Feature           | Phase   | Status |
+| -------- | ----------------- | ------- | ------ |
+| High     | Startup scripts   | Phase 7 | ⏳     |
+| High     | Save/Resurrect    | Phase 7 | ⏳     |
+| High     | Log flush         | Phase 7 | ⏳     |
+| Medium   | Reset command     | Phase 7 | ⏳     |
+| Medium   | Deployment system | Phase 7 | ⏳     |
+| Medium   | Static serve      | Phase 7 | ⏳     |
+| Low      | Module system     | Phase 7 | ⏳     |
+| Low      | Remote monitoring | Phase 7 | ⏳     |
 
 ---
 
-_Last Updated: 2026-02-02_
-_Phase 2 Complete: Clustering, Load Balancing, Health Checks, Events_
+## PM2 Feature Comparison
+
+| Feature            | PM2 | TSPM | Notes                      |
+| ------------------ | --- | ---- | -------------------------- |
+| Process management | ✅  | ✅   | Core feature               |
+| Clustering         | ✅  | ✅   | Multiple instances         |
+| Load balancing     | ✅  | ✅   | 7 strategies               |
+| Health checks      | ✅  | ✅   | HTTP/TCP/Command           |
+| Log management     | ✅  | ✅   | File logging + rotation    |
+| Hot reload         | ✅  | ✅   | File watcher               |
+| Environment vars   | ✅  | ✅   | .env support               |
+| Source maps        | ✅  | ✅   | Stack trace support        |
+| Webhooks           | ✅  | ✅   | Event notifications        |
+| Startup scripts    | ✅  | ❌   | systemd/launchd generation |
+| Save/Resurrect     | ✅  | ❌   | Process persistence        |
+| Log flush          | ✅  | ❌   | Clear logs command         |
+| Deployment         | ✅  | ❌   | Remote deploy via SSH      |
+| Static serve       | ✅  | ❌   | Serve static files         |
+| Reset counters     | ✅  | ❌   | Reset restart count        |
+| Module system      | ✅  | ❌   | Extensibility              |
+| Remote monitoring  | ✅  | ❌   | PM2 Plus equivalent        |
+| Custom metrics     | ✅  | ❌   | @pm2/io equivalent         |
+
+---
+
+_Last Updated: 2026-02-13_
+_Phase 6 Complete: Memory Limits, Priority, Container Support_
+_Next: Phase 7 - PM2 Parity Features_

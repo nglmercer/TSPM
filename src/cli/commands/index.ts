@@ -8,6 +8,9 @@ export * from './cluster';
 export * from './scale';
 export * from './groups';
 export * from './dev';
+export * from './flush';
+export * from './reloadLogs';
+export * from './startup';
 
 import { startCommand } from './start';
 import { stopCommand } from './stop';
