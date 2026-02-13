@@ -36,7 +36,7 @@ describe("ConfigManager", () => {
     writeFileSync(configPath, JSON.stringify(config));
     
     const loaded = await manager.load("tspm.json");
-    expect(loaded.processes[0].name).toBe("test");
+    expect(loaded.processes[0]!.name).toBe("test");
   });
 
   test("init should create directories and sample config", async () => {

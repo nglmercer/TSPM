@@ -30,7 +30,7 @@ describe("ConfigLoader", () => {
         // Let's assume ConfigLoader is used in current cwd or we use absolute path.
         
         const loaded = await ConfigLoader.load(configPath);
-        expect(loaded.processes[0].name).toBe("test");
+        expect(loaded.processes[0]!.name).toBe("test");
     });
 
     test("init should work via ConfigLoader", async () => {

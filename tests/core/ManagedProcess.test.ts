@@ -29,12 +29,13 @@ describe("ManagedProcess", () => {
         
         await process.start();
         let status = process.getStatus();
-        expect(status.pid).toBeDefined();
+        expect(status.pid!).toBeDefined();
         expect(status.killed).toBe(false);
         
         process.stop();
+        // Give it a moment to update state
+        await new Promise(resolve => setTimeout(resolve, 100));
         status = process.getStatus();
-        // Subprocess might take a moment to report killed/exit
         expect(status.killed).toBe(true);
     });
 

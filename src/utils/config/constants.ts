@@ -5,6 +5,51 @@
  */
 
 /**
+ * Process state enum values
+ */
+export const ProcessStateValues = {
+  STARTING: 'starting',
+  RUNNING: 'running',
+  STOPPING: 'stopping',
+  STOPPED: 'stopped',
+  ERRORED: 'errored',
+  RESTARTING: 'restarting',
+} as const;
+
+/**
+ * Process state type
+ */
+export type ProcessState = typeof ProcessStateValues[keyof typeof ProcessStateValues];
+
+/**
+ * Config format enum values
+ */
+export const ConfigFormatValues = {
+  YAML: 'yaml',
+  YML: 'yml',
+  JSON: 'json',
+  JSONC: 'jsonc',
+} as const;
+
+/**
+ * Config format type
+ */
+export type ConfigFormat = typeof ConfigFormatValues[keyof typeof ConfigFormatValues];
+
+/**
+ * Error severity enum values
+ */
+export const ErrorSeverityValues = {
+  ERROR: 'error',
+  WARNING: 'warning',
+} as const;
+
+/**
+ * Error severity type
+ */
+export type ErrorSeverity = typeof ErrorSeverityValues[keyof typeof ErrorSeverityValues];
+
+/**
  * Default configuration file names to search for
  */
 export const DEFAULT_CONFIG_FILES = [
@@ -77,22 +122,10 @@ export const LOG_CONFIG = {
 } as const;
 
 /**
- * Process state constants
+ * Process state constants (deprecated - use ProcessStateValues)
+ * @deprecated Use ProcessStateValues instead
  */
-export const PROCESS_STATE = {
-  /** Process is starting */
-  STARTING: 'starting',
-  /** Process is running */
-  RUNNING: 'running',
-  /** Process is stopping */
-  STOPPING: 'stopping',
-  /** Process has stopped */
-  STOPPED: 'stopped',
-  /** Process exited with error */
-  ERRORED: 'errored',
-  /** Process is restarting */
-  RESTARTING: 'restarting',
-} as const;
+export const PROCESS_STATE = ProcessStateValues;
 
 /**
  * Exit codes for TSPM CLI
@@ -115,6 +148,11 @@ export const EXIT_CODES = {
 } as const;
 
 /**
+ * Exit code type
+ */
+export type ExitCode = typeof EXIT_CODES[keyof typeof EXIT_CODES];
+
+/**
  * Signal constants for process management
  */
 export const SIGNALS = {
@@ -127,6 +165,11 @@ export const SIGNALS = {
   /** Interrupt signal */
   INTERRUPT: 'SIGINT',
 } as const;
+
+/**
+ * Signal type
+ */
+export type Signal = typeof SIGNALS[keyof typeof SIGNALS];
 
 /**
  * Environment variable names used by TSPM
@@ -145,12 +188,18 @@ export const ENV_VARS = {
 } as const;
 
 /**
+ * Environment variable name type
+ */
+export type EnvVar = typeof ENV_VARS[keyof typeof ENV_VARS];
+
+/**
  * File extensions for configuration files
  */
-export const CONFIG_FILE_EXTENSIONS = {
-  YAML: ['.yaml', '.yml'],
-  JSON: ['.json'],
-  JSONC: ['.jsonc'],
+export const CONFIG_FILE_EXTENSIONS: Record<ConfigFormat, readonly string[]> = {
+  yaml: ['.yaml'],
+  yml: ['.yml'],
+  json: ['.json'],
+  jsonc: ['.jsonc'],
 } as const;
 
 /**
@@ -166,10 +215,13 @@ export const CONFIG_MIME_TYPES = {
  * Get the default log file path for a process
  * 
  * @param processName - Name of the process
- * @param logDir - Log directory (defaults to 'logs')
+ * @param logDir - Log directory (defaults to DEFAULT_PROCESS_CONFIG.logDir)
  * @returns Log file path
  */
-export function getDefaultLogPath(processName: string, logDir: string = 'logs'): string {
+export function getDefaultLogPath(
+  processName: string, 
+  logDir: string = DEFAULT_PROCESS_CONFIG.logDir
+): string {
   return `${logDir}/${processName}.log`;
 }
 
@@ -177,10 +229,13 @@ export function getDefaultLogPath(processName: string, logDir: string = 'logs'):
  * Get the default PID file path for a process
  * 
  * @param processName - Name of the process
- * @param pidDir - PID directory (defaults to '.pids')
+ * @param pidDir - PID directory (defaults to DEFAULT_PROCESS_CONFIG.pidDir)
  * @returns PID file path
  */
-export function getDefaultPidPath(processName: string, pidDir: string = '.pids'): string {
+export function getDefaultPidPath(
+  processName: string, 
+  pidDir: string = DEFAULT_PROCESS_CONFIG.pidDir
+): string {
   return `${pidDir}/${processName}.pid`;
 }
 

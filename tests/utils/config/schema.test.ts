@@ -18,7 +18,7 @@ describe("Config Schema (ArkType)", () => {
       };
       const errors = validateProcessConfig(config);
       expect(errors).toHaveLength(1);
-      expect(errors[0].field).toBe("process.name");
+      expect(errors[0]!.field).toBe("process.name");
     });
 
     test("should return error for invalid type", () => {
@@ -29,7 +29,7 @@ describe("Config Schema (ArkType)", () => {
       // @ts-ignore
       const errors = validateProcessConfig(config);
       expect(errors).toHaveLength(1);
-      expect(errors[0].message).toContain("must be a string");
+      expect(errors[0]!.message).toContain("must be a string");
     });
 
     test("should return error for empty name", () => {
@@ -66,7 +66,7 @@ describe("Config Schema (ArkType)", () => {
       const result = validateConfig(config);
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].message).toContain("Duplicate process name");
+      expect(result.errors[0]!.message).toContain("Duplicate process name");
     });
 
     test("should fail on missing processes array", () => {
@@ -75,7 +75,7 @@ describe("Config Schema (ArkType)", () => {
       };
       const result = validateConfig(config);
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.field === "processes")).toBe(true);
+      expect(result.errors.some((e) => e.field === "processes")).toBe(true);
     });
   });
 });
