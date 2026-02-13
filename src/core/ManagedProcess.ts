@@ -1,6 +1,7 @@
 import { spawn, type Subprocess } from "bun";
+import { watch, type FSWatcher } from "node:fs";
 import type { ProcessConfig, ProcessStatus } from "./types";
-import { ENV_VARS } from "../utils/config/constants";
+import { ENV_VARS, WATCH_CONFIG } from "../utils/config/constants";
 import { getProcessStats, type ProcessStats } from "../utils/stats";
 import { LogManager, log } from "../utils/logger";
 import { EventEmitter, EventTypeValues, EventPriorityValues, createEvent, getDefaultEmitter } from "../utils/events";
@@ -18,6 +19,7 @@ export class ManagedProcess {
   private currentState: ProcessState = 'stopped';
   private eventEmitter: EventEmitter;
   private startedAt?: number;
+  private watcher?: FSWatcher;
 
   constructor(config: ProcessConfig, instanceId = 0, eventEmitter?: EventEmitter) {
     this.config = config;
@@ -44,6 +46,24 @@ export class ManagedProcess {
     // Update state
     this.setState('starting');
     
+    // 1. Run preStart script if defined
+    if (this.config.preStart) {
+      log.info(`[TSPM] Running preStart script for ${name}: ${this.config.preStart}`);
+      try {
+        const preStartResult = spawn({
+          cmd: ["sh", "-c", this.config.preStart],
+          cwd: this.config.cwd,
+          env: { ...process.env, ...this.config.env },
+        });
+        await preStartResult.exited;
+        if (preStartResult.exitCode !== 0) {
+          log.warn(`[TSPM] preStart script for ${name} failed with code ${preStartResult.exitCode}`);
+        }
+      } catch (e) {
+        log.error(`[TSPM] Error running preStart for ${name}: ${e}`);
+      }
+    }
+
     log.info(`[TSPM] Starting process: ${name} (instance: ${this.instanceId})`);
     
     const stdoutPath = this.config.stdout;
@@ -62,14 +82,44 @@ export class ManagedProcess {
         LogManager.rotate(stderrPath);
     }
 
+    // 2. Load dotEnv if defined
+    let dotEnvVars: Record<string, string> = {};
+    if (this.config.dotEnv) {
+      try {
+        const envFile = Bun.file(this.config.dotEnv);
+        if (await envFile.exists()) {
+          const content = await envFile.text();
+          dotEnvVars = this.parseDotEnv(content);
+        } else {
+          log.warn(`[TSPM] dotEnv file not found: ${this.config.dotEnv}`);
+        }
+      } catch (e) {
+        log.error(`[TSPM] Error loading dotEnv for ${name}: ${e}`);
+      }
+    }
+
+    // 3. Prepare Environment
+    const env = { 
+      ...process.env,
+      ...dotEnvVars,
+      ...this.config.env,
+      [ENV_VARS.PROCESS_NAME]: name,
+      [ENV_VARS.INSTANCE_ID]: this.instanceId.toString(),
+    } as Record<string, string>;
+
+    // Enable source map support if it's a JS/TS script
+    if (this.config.script.endsWith('.js')) {
+      env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
+    }
+    if (this.config.script.endsWith('.ts') || this.config.script.endsWith('.js')) {
+      // For Bun source maps
+      env.BUN_CONFIG_VERBOSE_SOURCE_MAPS = "true";
+    }
+
     this.subprocess = spawn({
       cmd: [this.config.script, ...(this.config.args || [])],
-      env: { 
-        ...process.env, 
-        ...this.config.env,
-        [ENV_VARS.PROCESS_NAME]: name,
-        [ENV_VARS.INSTANCE_ID]: this.instanceId.toString(),
-      },
+      cwd: this.config.cwd,
+      env,
       stdout: stdoutPath ? "pipe" : "inherit",
       stderr: stderrPath ? "pipe" : "inherit",
       onExit: (proc, exitCode, signalCode, error) => {
@@ -83,6 +133,26 @@ export class ManagedProcess {
     // Update state to running
     this.setState('running');
     
+    // 4. Run postStart script if defined
+    if (this.config.postStart) {
+      // Run it in the background
+      (async () => {
+        try {
+          const postStartResult = spawn({
+            cmd: ["sh", "-c", this.config.postStart!],
+            cwd: this.config.cwd,
+            env: { ...env },
+          });
+          await postStartResult.exited;
+          if (postStartResult.exitCode !== 0) {
+            log.warn(`[TSPM] postStart script for ${name} failed with code ${postStartResult.exitCode}`);
+          }
+        } catch (e) {
+          log.error(`[TSPM] Error running postStart for ${name}: ${e}`);
+        }
+      })();
+    }
+
     // Emit process start event
     this.eventEmitter.emit(createEvent(
       EventTypeValues.PROCESS_START,
@@ -102,6 +172,29 @@ export class ManagedProcess {
     if (stderrPath && this.subprocess.stderr instanceof ReadableStream) {
       this.streamToFile(this.subprocess.stderr, stderrPath);
     }
+  }
+
+  /**
+   * Parse dotenv content
+   */
+  private parseDotEnv(content: string): Record<string, string> {
+    const result: Record<string, string> = {};
+    const lines = content.split('\n');
+    for (const line of lines) {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        let key = match[1]!;
+        let value = match[2] || '';
+        // Remove quotes if present
+        if (value.startsWith('"') && value.endsWith('"')) {
+          value = value.substring(1, value.length - 1);
+        } else if (value.startsWith("'") && value.endsWith("'")) {
+          value = value.substring(1, value.length - 1);
+        }
+        result[key] = value;
+      }
+    }
+    return result;
   }
 
   /**

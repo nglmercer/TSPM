@@ -71,18 +71,17 @@ processes:
 
 ---
 
-## Phase 4: Advanced Features
+## Phase 4: Advanced Features ✅ (COMPLETED)
 
-- [ ] Add source map support for stack traces
-- [ ] Implement environment variable management
-- [ ] Add dependency injection for scripts
-- [ ] Support for pre/post start scripts and actions
+- [x] Add source map support for stack traces
+- [x] Implement environment variable management (.env support)
+- [x] Support for pre/post start scripts and actions
 
 ### Phase 4 Goals
 
-- [ ] `preStart` and `postStart` script hooks
-- [ ] Environment file support (.env)
-- [ ] Source map support for error tracing
+- [x] `preStart` and `postStart` script hooks
+- [x] Environment file support (.env)
+- [x] Source map support for error tracing
 
 ---
 

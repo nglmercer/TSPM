@@ -114,6 +114,12 @@ export const ProcessConfigSchema = type({
   'instanceId?': 'number>=0',
   /** Cluster group name */
   'clusterGroup?': 'string',
+  /** Dotenv file path */
+  'dotEnv?': 'string',
+  /** Script to run before starting the process */
+  'preStart?': 'string',
+  /** Script to run after the process has started */
+  'postStart?': 'string',
 });
 
 /**

@@ -16,6 +16,8 @@ export interface ProcessDaemonStatus {
     state: string;
     restarts?: number;
     uptime?: number;
+    healthy?: boolean;
+    instanceId?: number;
   };
 }
 

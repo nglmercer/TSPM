@@ -6,7 +6,7 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 
 ---
 
-## Current Status: Phase 3 Complete ✅
+## Current Status: Phase 4 Complete ✅
 
 ### Implemented Features
 
@@ -27,6 +27,9 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 | **Real-time Monit**      | ✅     | Auto-refreshing dashboard with stats                        |
 | **Structured Logs**      | ✅     | JSON logging and auto-rotation                              |
 | **Webhooks**             | ✅     | HTTP notifications for all events                           |
+| **Dotenv Support**       | ✅     | Load environment from .env files                            |
+| **Lifecycle Hooks**      | ✅     | preStart and postStart script execution                     |
+| **Source Maps**          | ✅     | Transparent source map support for stack traces             |
 
 ---
 
@@ -208,11 +211,11 @@ processes:
 - [x] Event system with Webhook support
 - [x] Health checks and readiness/liveness probes
 
-### Phase 4: Advanced Features
+### Phase 4: Advanced Features ✅ (COMPLETED)
 
-- [ ] Source map support for stack traces
-- [ ] Environment variable management
-- [ ] Pre/post scripts
+- [x] Source map support for stack traces
+- [x] Environment variable management (.env)
+- [x] Pre/post scripts and lifecycle hooks
 
 ### Phase 5: Developer Experience
 
