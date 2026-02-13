@@ -53,6 +53,14 @@ export class ConfigLoader {
   }
 
   /**
+   * Initialize a new TSPM workspace
+   * Creates directories and sample config
+   */
+  static async init(options?: { format?: 'yaml' | 'json', force?: boolean }) {
+    return this.getManager().init(options);
+  }
+
+  /**
    * Validate a configuration object
    * @param config Configuration to validate
    * @returns Validation result

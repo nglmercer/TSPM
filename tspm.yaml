@@ -1,13 +1,1 @@
-processes:
-  - name: "web-server"
-    script: "bun"
-    args: ["run", "examples/dummy-server.ts"]
-    env:
-      PORT: "3000"
-    autorestart: true
-    stdout: "logs/web-server.log"
-
-  - name: "worker"
-    script: "bun"
-    args: ["run", "examples/dummy-worker.ts"]
-    autorestart: true
+{processes: [{name: example-app,script: bun,args: [run,src/index.ts],env: {NODE_ENV: production,PORT: "3000"},autorestart: true,stdout: logs/example-app.log}],defaults: {autorestart: true,maxRestarts: 10},logDir: logs}

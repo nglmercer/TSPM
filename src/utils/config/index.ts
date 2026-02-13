@@ -82,6 +82,22 @@ export {
   calculateRestartDelay,
 } from './constants';
 
+// Init utilities
+export {
+  initConfig,
+  findExistingConfig,
+  getDefaultFilename,
+  createSampleConfig,
+  createMultiProcessConfig,
+  fromTemplate,
+  addProcessToConfig,
+  ConfigBuilder,
+  createConfigBuilder,
+  SAMPLE_PROCESSES,
+  type InitConfigOptions,
+  type InitResult,
+} from './init';
+
 /**
  * Supported configuration file formats
  */
