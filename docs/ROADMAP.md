@@ -138,28 +138,37 @@ processes:
 - [x] `serve <path> <port>` command - Static file server
 - [x] `report` command - Generate diagnostic report
 
-### 7.4: Deployment System (Medium Priority)
+### 7.4: Deployment System ✅ (COMPLETED)
 
-- [ ] `deploy` command - Remote deployment with SSH
-- [ ] Deployment configuration in ecosystem file
-- [ ] Pre-deploy/post-deploy hooks
-- [ ] Multi-environment support (staging, production)
+- [x] `deploy` command - Remote deployment with SSH
+- [x] Deployment configuration in ecosystem file
+- [x] Pre-deploy/post-deploy hooks
+- [x] Multi-environment support (staging, production)
 
-### 7.5: Additional Configuration Options
+### 7.5: Additional Configuration Options ✅ (COMPLETED)
+
+- [x] `killTimeout` - Time before force kill (ms)
+- [x] `listenTimeout` - Timeout for listen event (ms)
+- [x] `waitReady` - Wait for ready signal from app
+- [x] `maxRestarts` - Max restarts before stopped
+- [x] `autorestart` - Enable/disable auto restart
+- [x] `watchDelay` - Debounce for watch (ms)
+- [x] `instanceVar` - Custom instance variable name
+- [x] `mergeLogs` - Merge logs from all instances
 
 ```yaml
 processes:
   - name: my-app
     script: ./app.js
-    # New options to implement:
-    kill_timeout: 1600 # Time before force kill (ms)
-    listen_timeout: 3000 # Timeout for listen event (ms)
-    wait_ready: false # Wait for ready signal from app
-    max_restarts: 10 # Max restarts before stopped
+    # Phase 7.5 Options:
+    killTimeout: 1600 # Time before force kill (ms)
+    listenTimeout: 3000 # Timeout for listen event (ms)
+    waitReady: false # Wait for ready signal from app
+    maxRestarts: 10 # Max restarts before stopped
     autorestart: true # Enable/disable auto restart
-    watch_delay: 100 # Debounce for watch (ms)
-    instance_var: "NODE_APP_INSTANCE" # Instance variable name
-    merge_logs: false # Merge logs from all instances
+    watchDelay: 100 # Debounce for watch (ms)
+    instanceVar: "NODE_APP_INSTANCE" # Instance variable name
+    mergeLogs: false # Merge logs from all instances
 ```
 
 ---
@@ -198,7 +207,7 @@ processes:
 | Reset counters     | ✅  | ✅   | Reset restart count         |
 | Prettylist         | ✅  | ✅   | Pretty-printed process list |
 | Diagnostic report  | ✅  | ✅   | Generate diagnostic report  |
-| Deployment         | ✅  | ❌   | Remote deploy via SSH       |
+| Deployment         | ✅  | ✅   | Remote deploy via SSH       |
 
 ---
 

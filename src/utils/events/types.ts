@@ -22,6 +22,7 @@ export const EventTypeValues = {
   PROCESS_STATE_CHANGE: 'process:state-change',
   PROCESS_LOG: 'process:log',
   PROCESS_OOM: 'process:oom',
+  PROCESS_READY: 'process:ready',
   
   // Cluster events
   INSTANCE_ADD: 'instance:add',

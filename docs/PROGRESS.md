@@ -42,7 +42,7 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 | **Static serve**      | ✅     | Serve static files               | Medium   |
 | **Prettylist**        | ✅     | Pretty-printed process list      | Medium   |
 | **Report**            | ✅     | Diagnostic report generation     | Medium   |
-| **Deployment**        | ⏳     | Remote deployment via SSH        | Medium   |
+| **Deployment**        | ✅     | Remote deployment via SSH        | Medium   |
 | **Module system**     | ⏳     | Extensibility via modules        | Low      |
 | **Remote monitoring** | ⏳     | Cloud monitoring dashboard       | Low      |
 | **Custom metrics**    | ⏳     | Application metrics API          | Low      |
@@ -182,23 +182,23 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 
 | Feature           | Status | Description                 |
 | ----------------- | ------ | --------------------------- |
-| `deploy` command  | ⏳     | Remote deployment via SSH   |
-| Pre-deploy hooks  | ⏳     | Scripts before deployment   |
-| Post-deploy hooks | ⏳     | Scripts after deployment    |
-| Multi-environment | ⏳     | Staging, production support |
+| `deploy` command  | ✅     | Remote deployment via SSH   |
+| Pre-deploy hooks  | ✅     | Scripts before deployment   |
+| Post-deploy hooks | ✅     | Scripts after deployment    |
+| Multi-environment | ✅     | Staging, production support |
 
-### 7.5: Additional Config Options
+### 7.5: Additional Config Options ✅ (COMPLETED)
 
-| Option           | Status | Description                    |
-| ---------------- | ------ | ------------------------------ |
-| `kill_timeout`   | ⏳     | Time before force kill (ms)    |
-| `listen_timeout` | ⏳     | Timeout for listen event (ms)  |
-| `wait_ready`     | ⏳     | Wait for ready signal from app |
-| `max_restarts`   | ⏳     | Max restarts before stopped    |
-| `autorestart`    | ⏳     | Enable/disable auto restart    |
-| `watch_delay`    | ⏳     | Debounce for watch (ms)        |
-| `instance_var`   | ⏳     | Instance variable name         |
-| `merge_logs`     | ⏳     | Merge logs from all instances  |
+| Option          | Status | Description                    |
+| --------------- | ------ | ------------------------------ |
+| `killTimeout`   | ✅     | Time before force kill (ms)    |
+| `listenTimeout` | ✅     | Timeout for listen event (ms)  |
+| `waitReady`     | ✅     | Wait for ready signal from app |
+| `maxRestarts`   | ✅     | Max restarts before stopped    |
+| `autorestart`   | ✅     | Enable/disable auto restart    |
+| `watchDelay`    | ✅     | Debounce for watch (ms)        |
+| `instanceVar`   | ✅     | Custom instance variable name  |
+| `mergeLogs`     | ✅     | Merge logs from all instances  |
 
 ### 7.6: Module System (Low Priority)
 
@@ -411,6 +411,9 @@ processes:
 - Static file server
 - Pretty-printed process list
 - Diagnostic report generation
+- Remote deployment with SSH
+- Pre/post-deploy hooks
+- Multi-environment deployment support
 
 ### In Progress / Planned ⏳
 
@@ -437,5 +440,5 @@ _Next: Phase 7.4 - Deployment System_
 
 _Last Updated: 2026-02-13_
 _Total Tests: 47 passing_
-_Phase 6 Complete: Memory Limits, Priority, Container Support_
-_Next: Phase 7 - PM2 Parity Features (Startup, Save, Flush, Reset)_
+_Phase 7.4 Complete: Deployment System (SSH, Pre/Post Hooks, Multi-Environment)_
+_Next: Phase 7.5-7.7 - Additional Config Options, Module System, Remote Monitoring_

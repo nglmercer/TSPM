@@ -24,7 +24,8 @@ import {
   resetCommand,
   prettylistCommand,
   serveCommand,
-  reportCommand
+  reportCommand,
+  deployCommand
 } from './commands';
 
 /**

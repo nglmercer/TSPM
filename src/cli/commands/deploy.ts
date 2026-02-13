@@ -34,8 +34,8 @@ export async function deployCommand(options: DeployCommandOptions = {}): Promise
     // Load configuration
     const configManager = getConfigManager();
     const config = configPath
-      ? await configManager.loadConfig(configPath)
-      : await configManager.findAndLoadConfig();
+      ? await configManager.load(configPath)
+      : await configManager.load();
 
     // Check if deployment is configured
     if (!config.deploy) {

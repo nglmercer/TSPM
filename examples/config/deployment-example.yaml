@@ -1,0 +1,88 @@
+# TSPM Configuration Example with Deployment
+# Demonstrates Phase 7.4 - Deployment System features
+
+processes:
+  - name: my-app
+    script: bun
+    args:
+      - run
+      - src/index.ts
+    instances: 2
+    lbStrategy: round-robin
+    autorestart: true
+    env:
+      NODE_ENV: production
+      PORT: "3000"
+
+# Deployment configuration for remote deployments via SSH
+deploy:
+  # Git repository URL (optional if using local deployment)
+  repo: https://github.com/yourusername/your-repo.git
+  
+  # Multiple environment configurations
+  environments:
+    # Staging environment
+    staging:
+      host: staging.example.com
+      user: deploy
+      port: 22
+      key: ~/.ssh/deploy_key  # SSH key path (optional)
+      path: /var/www/staging
+      ref: develop  # Git branch/tag/commit
+      
+      # Pre-deploy hooks (run before deployment)
+      preDeploy:
+        - echo "Starting staging deployment..."
+        - npm install
+        - npm run build
+        - npm run test
+      
+      # Post-deploy hooks (run after deployment)
+      postDeploy:
+        - cd /var/www/staging
+        - tspm restart --all
+        - echo "Staging deployment complete!"
+      
+      # Environment-specific variables
+      env:
+        NODE_ENV: staging
+        PORT: "4000"
+    
+    # Production environment
+    production:
+      host: prod.example.com
+      user: deploy
+      port: 22
+      key: ~/.ssh/prod_deploy_key
+      path: /var/www/production
+      ref: main  # Deploy from main branch
+      
+      preDeploy:
+        - echo "Starting production deployment..."
+        - git status
+        - npm ci  # Clean install
+        - npm run build
+        - npm run test:prod
+      
+      postDeploy:
+        - cd /var/www/production
+        - pm2 reload ecosystem.config.js
+        - curl -X POST https://api.example.com/deploy/notify
+        - echo "Production deployment complete!"
+      
+      env:
+        NODE_ENV: production
+        PORT: "3000"
+    
+    # Development environment (local)
+    development:
+      host: localhost
+      user: dev
+      path: /opt/app/dev
+      ref: develop
+      
+      preDeploy:
+        - echo "Development deployment..."
+      
+      postDeploy:
+        - tspm restart --all

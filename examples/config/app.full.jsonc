@@ -7,7 +7,13 @@
     "maxRestarts": 10,
     "restartDelay": 1000,
     "logDir": "logs",
-    "pidDir": ".pids"
+    "pidDir": ".pids",
+    "killTimeout": 5000,
+    "listenTimeout": 3000,
+    "waitReady": false,
+    "watchDelay": 100,
+    "mergeLogs": false,
+    "instanceVar": "NODE_APP_INSTANCE"
   },
   
   "namespace": "example-full",
@@ -15,7 +21,7 @@
   "webhooks": [
     {
       "url": "https://example.com/webhook",
-      "events": ["process:start", "process:stop", "process:error"],
+      "events": ["process:start", "process:stop", "process:error", "process:ready"],
       "enabled": false
     }
   ],
@@ -40,6 +46,8 @@
       "instances": 3,
       "lbStrategy": "weighted",
       "instanceWeight": 10,
+      "mergeLogs": false,
+      "instanceVar": "NODE_APP_INSTANCE",
       
       "healthCheck": {
         "enabled": true,
@@ -55,13 +63,17 @@
       },
       
       "watch": true,
+      "watchDelay": 200,
       "ignoreWatch": ["node_modules", "logs"],
       
       "stdout": "logs/detailed-server.out.log",
       "stderr": "logs/detailed-server.err.log",
       "logDateFormat": "YYYY-MM-DD HH:mm:ss",
       
-      "killTimeout": 5000,
+      // Phase 7.5: Additional Configuration Options
+      "killTimeout": 1600,
+      "listenTimeout": 3000,
+      "waitReady": true,
       "minUptime": 1000,
       
       "labels": {
