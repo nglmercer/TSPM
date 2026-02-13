@@ -10,7 +10,10 @@ import {
   listCommand,
   logsCommand,
   describeCommand,
-  monitCommand
+  monitCommand,
+  clusterCommand,
+  scaleCommand,
+  groupsCommand
 } from './commands';
 
 /**
@@ -145,6 +148,27 @@ export function createProgram(): Command {
     .action(() => {
       log.info('[TSPM] Metrics reset not yet implemented');
     });
+
+  // Cluster command
+  program
+    .command('cluster')
+    .description('Show cluster information for a process')
+    .argument('[name]', 'Process name')
+    .action(clusterCommand);
+
+  // Scale command
+  program
+    .command('scale')
+    .description('Scale cluster instances')
+    .argument('<name>', 'Process name to scale')
+    .argument('<count>', 'Number of instances')
+    .action(scaleCommand);
+
+  // Groups command
+  program
+    .command('groups')
+    .description('Show process groups and namespaces')
+    .action(groupsCommand);
 
   return program;
 }

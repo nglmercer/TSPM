@@ -217,7 +217,7 @@ export class MonitoringService {
 
     // Emit instance add event
     this.eventEmitter.emit(createEvent(
-      'instance:add' as EventType,
+      EventTypeValues.INSTANCE_ADD,
       'MonitoringService',
       { processName, instanceId, totalInstances: this.processes.size },
       EventPriorityValues.NORMAL
@@ -245,7 +245,7 @@ export class MonitoringService {
 
     // Emit instance remove event
     this.eventEmitter.emit(createEvent(
-      'instance:remove' as EventType,
+      EventTypeValues.INSTANCE_REMOVE,
       'MonitoringService',
       { processName, instanceId, remainingInstances: this.processes.size },
       EventPriorityValues.NORMAL
@@ -293,7 +293,7 @@ export class MonitoringService {
 
     // Emit system start event
     this.eventEmitter.emit(createEvent(
-      'system:start' as EventType,
+      EventTypeValues.SYSTEM_START,
       'MonitoringService',
       { configFile: '', processCount: this.processes.size },
       EventPriorityValues.HIGH
@@ -323,7 +323,7 @@ export class MonitoringService {
 
     // Emit system stop event
     this.eventEmitter.emit(createEvent(
-      'system:stop' as EventType,
+      EventTypeValues.SYSTEM_STOP,
       'MonitoringService',
       { reason: 'manual', graceful: true },
       EventPriorityValues.HIGH
@@ -365,7 +365,7 @@ export class MonitoringService {
 
           // Emit metrics update event
           this.eventEmitter.emit(createEvent(
-            'metrics:update' as EventType,
+            EventTypeValues.METRICS_UPDATE,
             'MonitoringService',
             { processName: data.processName, instanceId: data.instanceId, metrics },
             EventPriorityValues.LOW
@@ -397,7 +397,7 @@ export class MonitoringService {
     // CPU threshold
     if (metrics.cpu > this.config.cpuThreshold) {
       this.eventEmitter.emit(createEvent(
-        'metrics:cpu-high' as EventType,
+        EventTypeValues.CPU_HIGH,
         'MonitoringService',
         {
           processName: data.processName,
@@ -416,7 +416,7 @@ export class MonitoringService {
     // Memory threshold
     if (metrics.memory > this.config.memoryThreshold) {
       this.eventEmitter.emit(createEvent(
-        'metrics:memory-high' as EventType,
+        EventTypeValues.MEMORY_HIGH,
         'MonitoringService',
         {
           processName: data.processName,
@@ -451,7 +451,7 @@ export class MonitoringService {
       // Emit health change event if status changed
       if (previousHealthy !== result.healthy) {
         this.eventEmitter.emit(createEvent(
-          'instance:health-change' as EventType,
+          EventTypeValues.INSTANCE_HEALTH_CHANGE,
           'MonitoringService',
           { processName, instanceId, healthy: result.healthy },
           EventPriorityValues.HIGH
