@@ -11,6 +11,20 @@ import {
   DEFAULT_PROCESS_CONFIG 
 } from './constants';
 
+/**
+ * Webhook configuration schema
+ */
+const WebhookConfigSchema = type({
+  /** Webhook URL */
+  'url': 'string>0',
+  /** Events to trigger this webhook */
+  'events?': 'string[]',
+  /** HTTP headers to send */
+  'headers?': 'Record<string, string>',
+  /** Whether the webhook is enabled */
+  'enabled?': 'boolean',
+});
+
 
 /**
  * Health check configuration schema
@@ -121,6 +135,10 @@ export const TSPMConfigSchema = type({
   'logDir?': 'string',
   /** PID file directory */
   'pidDir?': 'string',
+  /** Webhook notifications */
+  'webhooks?': WebhookConfigSchema.array(),
+  /** Enable structured JSON logging */
+  'structuredLogging?': 'boolean',
 });
 
 /**

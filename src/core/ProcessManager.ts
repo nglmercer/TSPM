@@ -4,7 +4,10 @@ import { ProcessCluster, LoadBalancerFactory, type LoadBalanceStrategy } from ".
 import { MonitoringService, createMonitoringService, type MonitoringServiceOptions } from "../utils/monitoring";
 import { EventEmitter, getDefaultEmitter, EventTypeValues, EventPriorityValues, createEvent } from "../utils/events";
 import type { HealthCheckConfig } from "../utils/healthcheck";
+import type { TSPMEvent, EventType, EventListener } from "../utils/events";
 
+import { WebhookService, type WebhookConfig } from "../utils/webhooks";
+  
 export class ProcessManager {
   private processes: Map<string, ManagedProcess> = new Map();
   private clusters: Map<string, ProcessCluster> = new Map();
@@ -12,11 +15,22 @@ export class ProcessManager {
   private clusterGroups: Map<string, Set<string>> = new Map();
   private monitoringService?: MonitoringService;
   private eventEmitter: EventEmitter;
+  private webhookService?: WebhookService;
   
-  constructor(options?: { monitoring?: MonitoringServiceOptions }) {
+  constructor(options?: { 
+    monitoring?: MonitoringServiceOptions;
+    webhooks?: WebhookConfig[];
+  }) {
     this.eventEmitter = getDefaultEmitter();
     if (options?.monitoring) {
       this.monitoringService = createMonitoringService(options.monitoring);
+    }
+    if (options?.webhooks && options.webhooks.length > 0) {
+      this.webhookService = new WebhookService(options.webhooks);
+      // Forward all events to webhooks
+      this.eventEmitter.onAny((event) => {
+        this.webhookService?.send(event);
+      });
     }
   }
 
@@ -29,15 +43,13 @@ export class ProcessManager {
     
     // Create cluster for this process if instances > 1
     if (instanceCount > 1) {
-      const cluster = new ProcessCluster(
-        config.name,
-        (config.lbStrategy as LoadBalanceStrategy) || 'round-robin'
-      );
+      const strategy = (config.lbStrategy || 'round-robin') as LoadBalanceStrategy;
+      const cluster = new ProcessCluster(config.name, strategy);
       this.clusters.set(config.name, cluster);
     }
     
     for (let i = 0; i < instanceCount; i++) {
-        const process = new ManagedProcess(config, i);
+        const process = new ManagedProcess(config, i, this.eventEmitter);
         const name = i > 0 ? `${config.name}-${i}` : config.name;
         this.processes.set(name, process);
         
@@ -384,7 +396,7 @@ export class ProcessManager {
       if (!config) return;
       
       for (let i = currentCount; i < newCount; i++) {
-        const process = new ManagedProcess(config, i);
+        const process = new ManagedProcess(config, i, this.eventEmitter);
         const name = `${baseName}-${i}`;
         this.processes.set(name, process);
         
@@ -411,5 +423,63 @@ export class ProcessManager {
         }
       }
     }
+  }
+  
+  /**
+   * Get the event emitter
+   */
+  getEventEmitter(): EventEmitter {
+    return this.eventEmitter;
+  }
+  
+  /**
+   * Get the monitoring service
+   */
+  getMonitoringService(): MonitoringService | undefined {
+    return this.monitoringService;
+  }
+  
+  /**
+   * Start monitoring all processes
+   */
+  startMonitoring(): void {
+    if (!this.monitoringService) {
+      this.monitoringService = createMonitoringService();
+    }
+    
+    // Register all processes with monitoring
+    for (const [name, proc] of this.processes.entries()) {
+      const status = proc.getStatus();
+      if (status.pid) {
+        const config = proc.getConfig();
+        this.monitoringService.registerProcess(
+          config.name,
+          proc.getInstanceId(),
+          status.pid,
+          config.healthCheck as Partial<HealthCheckConfig> | undefined
+        );
+      }
+    }
+    
+    this.monitoringService.start();
+  }
+  
+  /**
+   * Stop monitoring
+   */
+  stopMonitoring(): void {
+    if (this.monitoringService) {
+      this.monitoringService.stop();
+    }
+  }
+  
+  /**
+   * Subscribe to process events
+   */
+  onProcessEvent(
+    eventType: EventType,
+    listener: EventListener
+  ): void {
+    this.eventEmitter.on(eventType, listener);
   }
 }

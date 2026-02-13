@@ -2,7 +2,7 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { ConfigLoader, ProcessManager } from '../../core';
 import { EXIT_CODES, PROCESS_STATE } from '../../utils/config/constants';
-import { log } from '../../utils/logger';
+import { log, configureLogger } from '../../utils/logger';
 import { TSPM_HOME } from '../state/constants';
 import { ensureTSPMHome, updateProcessStatus, writeDaemonStatus } from '../state/status';
 
@@ -22,7 +22,15 @@ export async function startCommand(
 
   try {
     const config = await ConfigLoader.load(configPath);
-    const manager = new ProcessManager();
+
+    // Apply global logging config if requested
+    if (config.structuredLogging) {
+      configureLogger({ json: true });
+    }
+
+    const manager = new ProcessManager({
+      webhooks: config.webhooks
+    });
 
     // Determine which processes to start
     const processesToStart = options.name

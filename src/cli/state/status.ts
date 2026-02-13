@@ -14,6 +14,8 @@ export interface ProcessDaemonStatus {
     startedAt: number;
     config: ProcessConfig;
     state: string;
+    restarts?: number;
+    uptime?: number;
   };
 }
 

@@ -426,6 +426,28 @@ export function getLogger(options?: LoggerOptions): Logger {
 }
 
 /**
+ * Configure the default logger instance
+ */
+export function configureLogger(options: LoggerOptions): Logger {
+  const logger = getLogger();
+  if (options.level) logger.setLevel(options.level);
+  if (options.json !== undefined) (logger as any).json = options.json;
+  if (options.fileOutput !== undefined) (logger as any).fileOutput = options.fileOutput;
+  if (options.file !== undefined) (logger as any).file = options.file;
+  if (options.console !== undefined) (logger as any).console = options.console;
+  if (options.colors !== undefined) (logger as any).colors = options.colors;
+  
+  if (options.file && options.fileOutput) {
+    const dir = dirname(options.file);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+  }
+  
+  return logger;
+}
+
+/**
  * Create a new logger instance
  */
 export function createLogger(options?: LoggerOptions): Logger {
