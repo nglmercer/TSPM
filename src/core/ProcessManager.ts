@@ -334,15 +334,65 @@ export class ProcessManager {
   }
 
   /**
+   * Start a process by name or base name
+   */
+  async startProcess(name: string): Promise<void> {
+    const processes = this.getProcessesByBaseName(name);
+    if (processes.length === 0) {
+      const p = this.processes.get(name);
+      if (p) processes.push(p);
+    }
+    
+    for (const proc of processes) {
+      await proc.start();
+    }
+  }
+
+  /**
+   * Stop a process by name or base name
+   */
+  stopProcess(name: string): void {
+    const processes = this.getProcessesByBaseName(name);
+    if (processes.length === 0) {
+      const p = this.processes.get(name);
+      if (p) processes.push(p);
+    }
+    
+    for (const proc of processes) {
+      proc.stop();
+    }
+  }
+
+  /**
+   * Restart a process by name or base name
+   */
+  async restartProcess(name: string): Promise<void> {
+    const processes = this.getProcessesByBaseName(name);
+    if (processes.length === 0) {
+      const p = this.processes.get(name);
+      if (p) processes.push(p);
+    }
+    
+    for (const proc of processes) {
+      await proc.restart();
+    }
+  }
+
+  /**
    * Get status of all managed processes
    * @returns Array of process statuses
    */
   getStatuses(): (ProcessStatus & { namespace?: string; clusterGroup?: string })[] {
-    return Array.from(this.processes.values()).map(p => ({
-        ...p.getStatus(),
-        namespace: p.getConfig().namespace,
-        clusterGroup: p.getConfig().clusterGroup,
-    }));
+    const statuses: (ProcessStatus & { namespace?: string; clusterGroup?: string })[] = [];
+    for (const [name, process] of this.processes.entries()) {
+      const status = process.getStatus();
+      statuses.push({
+        ...status,
+        namespace: process.getConfig().namespace,
+        clusterGroup: process.getConfig().clusterGroup,
+      });
+    }
+    return statuses;
   }
 
   /**

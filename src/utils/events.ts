@@ -15,6 +15,8 @@ export const EventTypeValues = {
   PROCESS_EXIT: 'process:exit',
   PROCESS_ERROR: 'process:error',
   PROCESS_STATE_CHANGE: 'process:state-change',
+  PROCESS_LOG: 'process:log',
+  PROCESS_OOM: 'process:oom', // Out-of-memory event (Phase 6)
   
   // Cluster events
   INSTANCE_ADD: 'instance:add',
@@ -220,6 +222,32 @@ export interface MemoryHighEvent extends BaseEvent {
 }
 
 /**
+ * Process log event
+ */
+export interface ProcessLogEvent extends BaseEvent {
+  type: typeof EventTypeValues.PROCESS_LOG;
+  data: {
+    processName: string;
+    instanceId: number;
+    message: string;
+    type: 'stdout' | 'stderr';
+  };
+}
+
+/**
+ * Process OOM (Out-of-Memory) event - Phase 6
+ */
+export interface ProcessOOMEvent extends BaseEvent {
+  type: typeof EventTypeValues.PROCESS_OOM;
+  data: {
+    processName: string;
+    instanceId: number;
+    memory: number;
+    limit: number;
+  };
+}
+
+/**
  * System start event
  */
 export interface SystemStartEvent extends BaseEvent {
@@ -273,6 +301,7 @@ export type TSPMEvent =
   | ProcessExitEvent 
   | ProcessErrorEvent 
   | ProcessStateChangeEvent
+  | ProcessOOMEvent
   | InstanceAddEvent 
   | InstanceRemoveEvent 
   | InstanceHealthChangeEvent

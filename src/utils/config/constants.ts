@@ -71,12 +71,22 @@ export const DEFAULT_PROCESS_CONFIG = {
   autorestart: true,
   /** Maximum restart attempts before giving up */
   maxRestarts: 10,
+  /** Minimum delay between restarts in ms */
+  minRestartDelay: 100,
+  /** Maximum delay between restarts in ms */
+  maxRestartDelay: 30000,
+  /** Restart backoff multiplier */
+  restartBackoff: 2,
   /** Kill timeout in milliseconds */
   killTimeout: 5000,
   /** Default log directory */
   logDir: 'logs',
   /** PID file directory */
   pidDir: '.pids',
+  /** Max memory in bytes (0 = disabled) */
+  maxMemory: 0,
+  /** Minimum uptime in ms before considering restart successful */
+  minUptime: 0,
 } as const;
 
 /**

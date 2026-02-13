@@ -61,6 +61,48 @@ const HealthCheckConfigSchema = type({
 });
 
 /**
+ * Kubernetes configuration schema for container orchestration hints
+ */
+const KubernetesConfigSchema = type({
+  /** Enable Kubernetes mode */
+  'enabled?': 'boolean',
+  /** Pod name */
+  'podName?': 'string',
+  /** Pod namespace */
+  'podNamespace?': 'string',
+  /** Pod labels */
+  'labels?': 'Record<string, string>',
+  /** Pod annotations */
+  'annotations?': 'Record<string, string>',
+  /** Container name */
+  'containerName?': 'string',
+  /** Liveness probe path */
+  'livenessProbe?': 'string',
+  /** Readiness probe path */
+  'readinessProbe?': 'string',
+  /** Start-up probe path */
+  'startupProbe?': 'string',
+});
+
+/**
+ * Docker configuration schema for container hints
+ */
+const DockerConfigSchema = type({
+  /** Enable Docker mode */
+  'enabled?': 'boolean',
+  /** Container name */
+  'containerName?': 'string',
+  /** Container labels */
+  'labels?': 'Record<string, string>',
+  /** Restart policy */
+  'restartPolicy?': 'string',
+  /** Memory limit */
+  'memoryLimit?': 'string',
+  /** CPU limit */
+  'cpuLimit?': 'string',
+});
+
+/**
  * ArkType schema for process configuration
  */
 export const ProcessConfigSchema = type({
@@ -82,6 +124,12 @@ export const ProcessConfigSchema = type({
   'ignoreWatch?': 'string[]',
   /** Maximum restart attempts */
   'maxRestarts?': 'number>=0',
+  /** Minimum delay between restarts in ms */
+  'minRestartDelay?': 'number>=0',
+  /** Maximum delay between restarts in ms */
+  'maxRestartDelay?': 'number>=0',
+  /** Restart backoff multiplier */
+  'restartBackoff?': 'number>=1',
   /** Delay between restarts in ms (default: exponential backoff) */
   'restartDelay?': 'number>=0',
   /** Standard output log file path */
@@ -104,6 +152,8 @@ export const ProcessConfigSchema = type({
   'user?': 'string',
   /** Process group (Unix only) */
   'group?': 'string',
+  /** Process priority (nice value, -20 to 19) */
+  'nice?': 'number',
   /** Load balancing strategy for clustered instances */
   'lbStrategy?': 'string',
   /** Instance weight for weighted load balancing */
@@ -120,6 +170,18 @@ export const ProcessConfigSchema = type({
   'preStart?': 'string',
   /** Script to run after the process has started */
   'postStart?': 'string',
+  /** Maximum memory in bytes before auto-restart (OOM) */
+  'maxMemory?': 'number>=0',
+  /** Minimum uptime in ms before considering restart successful */
+  'minUptime?': 'number>=0',
+  /** Process labels for metadata */
+  'labels?': 'Record<string, string>',
+  /** Process annotations for metadata */
+  'annotations?': 'Record<string, string>',
+  /** Kubernetes configuration */
+  'kubernetes?': KubernetesConfigSchema,
+  /** Docker configuration */
+  'docker?': DockerConfigSchema,
 });
 
 /**

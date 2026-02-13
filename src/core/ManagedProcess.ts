@@ -1,7 +1,7 @@
 import { spawn, type Subprocess } from "bun";
 import { watch, type FSWatcher } from "node:fs";
 import type { ProcessConfig, ProcessStatus } from "./types";
-import { ENV_VARS, WATCH_CONFIG } from "../utils/config/constants";
+import { ENV_VARS, WATCH_CONFIG, DEFAULT_PROCESS_CONFIG } from "../utils/config/constants";
 import { getProcessStats, type ProcessStats } from "../utils/stats";
 import { LogManager, log } from "../utils/logger";
 import { EventEmitter, EventTypeValues, EventPriorityValues, createEvent, getDefaultEmitter } from "../utils/events";
@@ -20,6 +20,8 @@ export class ManagedProcess {
   private eventEmitter: EventEmitter;
   private startedAt?: number;
   private watcher?: FSWatcher;
+  private memoryMonitorInterval?: Timer;
+  private firstStartTime?: number;
 
   constructor(config: ProcessConfig, instanceId = 0, eventEmitter?: EventEmitter) {
     this.config = config;
@@ -43,6 +45,11 @@ export class ManagedProcess {
     this.isManuallyStopped = false;
     const name = this.fullProcessName;
     
+    // Setup watcher if enabled and not already watching
+    if (this.config.watch && !this.watcher) {
+      this.setupWatcher();
+    }
+
     // Update state
     this.setState('starting');
     
@@ -130,6 +137,9 @@ export class ManagedProcess {
     // Record start time
     this.startedAt = Date.now();
     
+    // 5. Start memory monitoring if maxMemory is configured
+    this.startMemoryMonitoring();
+    
     // Update state to running
     this.setState('running');
     
@@ -172,6 +182,244 @@ export class ManagedProcess {
     if (stderrPath && this.subprocess.stderr instanceof ReadableStream) {
       this.streamToFile(this.subprocess.stderr, stderrPath);
     }
+  }
+
+  /**
+   * Setup file watcher for hot reload
+   */
+  private setupWatcher(): void {
+    const watchPath = this.config.cwd || process.cwd();
+    log.info(`[TSPM] Setup watcher for ${this.fullProcessName} on ${watchPath}`);
+    
+    let debounceTimer: Timer | null = null;
+    
+    try {
+      this.watcher = watch(watchPath, { recursive: true }, (event, filename) => {
+        if (!filename) return;
+
+        // Ignore patterns
+        const isIgnored = WATCH_CONFIG.defaultIgnore.some(pattern => {
+          if (pattern.endsWith('/**')) {
+            const dir = pattern.slice(0, -3);
+            return filename.startsWith(dir);
+          }
+          return filename.endsWith(pattern.replace('*.', '.'));
+        });
+
+        if (isIgnored) return;
+
+        log.debug(`[TSPM] Watcher: File changed: ${filename}`);
+
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          this.restart('watch');
+        }, WATCH_CONFIG.debounceMs);
+      });
+    } catch (e) {
+      log.error(`[TSPM] Failed to setup watcher: ${e}`);
+    }
+  }
+
+  /**
+   * Restart the managed process
+   */
+  async restart(reason: 'manual' | 'watch' = 'manual'): Promise<void> {
+    const name = this.fullProcessName;
+    log.info(`[TSPM] Restarting process: ${name} (reason: ${reason})`);
+    
+    this.setState('restarting');
+    
+    // Stop without trigger handleExit logic that might cause double restart
+    if (this.subprocess) {
+      this.subprocess.kill();
+      // Wait a bit for it to stop
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    await this.start();
+  }
+
+  /**
+   * Start memory monitoring for OOM detection
+   */
+  private startMemoryMonitoring(): void {
+    const maxMemory = this.config.maxMemory || DEFAULT_PROCESS_CONFIG.maxMemory;
+    
+    // Only start monitoring if maxMemory is configured (> 0)
+    if (maxMemory <= 0) return;
+    
+    // Clear any existing interval
+    if (this.memoryMonitorInterval) {
+      clearInterval(this.memoryMonitorInterval);
+    }
+    
+    const checkInterval = 5000; // Check every 5 seconds
+    
+    this.memoryMonitorInterval = setInterval(async () => {
+      if (!this.subprocess || !this.subprocess.pid || this.isManuallyStopped) {
+        this.stopMemoryMonitoring();
+        return;
+      }
+      
+      const stats = await this.getStats();
+      if (!stats) return;
+      
+      // Check if memory exceeds limit
+      if (stats.memory > maxMemory) {
+        log.warn(`[TSPM] Process ${this.fullProcessName} exceeded memory limit: ${stats.memory} bytes > ${maxMemory} bytes`);
+        
+        // Emit OOM event
+        this.eventEmitter.emit(createEvent(
+          EventTypeValues.PROCESS_OOM,
+          'ManagedProcess',
+          {
+            processName: this.config.name,
+            instanceId: this.instanceId,
+            memory: stats.memory,
+            limit: maxMemory,
+          },
+          EventPriorityValues.HIGH
+        ));
+        
+        // Kill the process - this will trigger handleExit
+        this.subprocess.kill();
+      }
+    }, checkInterval);
+  }
+
+  /**
+   * Stop memory monitoring
+   */
+  private stopMemoryMonitoring(): void {
+    if (this.memoryMonitorInterval) {
+      clearInterval(this.memoryMonitorInterval);
+      this.memoryMonitorInterval = undefined;
+    }
+  }
+
+  /**
+   * Stop the managed process
+   */
+  stop(): void {
+    const name = this.fullProcessName;
+    this.isManuallyStopped = true;
+    
+    // Stop memory monitoring
+    this.stopMemoryMonitoring();
+    
+    this.setState('stopping');
+    
+    if (this.watcher) {
+      this.watcher.close();
+      this.watcher = undefined;
+    }
+
+    if (this.subprocess) {
+      this.subprocess.kill();
+      log.info(`[TSPM] Stopped process: ${name}`);
+      
+      // Emit stop event
+      this.eventEmitter.emit(createEvent(
+        EventTypeValues.PROCESS_STOP,
+        'ManagedProcess',
+        {
+          processName: this.config.name,
+          instanceId: this.instanceId,
+          pid: this.subprocess.pid,
+          reason: 'manual',
+        },
+        EventPriorityValues.NORMAL
+      ));
+    }
+    
+    this.setState('stopped');
+  }
+  
+  /**
+   * Set the process state and emit state change event
+   */
+  private setState(newState: ProcessState): void {
+    const previousState = this.currentState;
+    this.currentState = newState;
+    
+    // Emit state change event
+    this.eventEmitter.emit(createEvent(
+      EventTypeValues.PROCESS_STATE_CHANGE,
+      'ManagedProcess',
+      {
+        processName: this.config.name,
+        instanceId: this.instanceId,
+        previousState,
+        currentState: newState,
+      },
+      EventPriorityValues.LOW
+    ));
+  }
+
+  /**
+   * Get the current status of the managed process
+   */
+  getStatus(): ProcessStatus {
+    const exitCode = this.subprocess?.exitCode;
+    const uptime = this.startedAt ? Date.now() - this.startedAt : undefined;
+    return {
+      name: this.fullProcessName,
+      pid: this.subprocess?.pid,
+      killed: this.subprocess?.killed,
+      exitCode: exitCode !== null ? exitCode : undefined,
+      state: this.currentState,
+      restartCount: this.restartCount,
+      uptime,
+      instanceId: this.instanceId,
+    };
+  }
+  
+  /**
+   * Get the current state
+   */
+  getState(): ProcessState {
+    return this.currentState;
+  }
+  
+  /**
+   * Get the started at timestamp
+   */
+  getStartedAt(): number | undefined {
+    return this.startedAt;
+  }
+
+  /**
+   * Get real-time stats for the process
+   */
+  async getStats(): Promise<ProcessStats | null> {
+    if (!this.subprocess || !this.subprocess.pid) return null;
+    
+    const stats = await getProcessStats(this.subprocess.pid);
+    if (stats) {
+        this.lastStats = stats;
+    }
+    return stats;
+  }
+
+  /**
+   * Get the process configuration
+   */
+  getConfig(): ProcessConfig {
+    return this.config;
+  }
+
+  /**
+   * Get instance ID
+   */
+  getInstanceId(): number {
+    return this.instanceId;
+  }
+
+  /**
+   * Get last collected stats
+   */
+  getLastStats(): import('../utils/stats').ProcessStats | null {
+    return this.lastStats;
   }
 
   /**
@@ -296,122 +544,5 @@ export class ManagedProcess {
     } else {
       this.setState('stopped');
     }
-  }
-
-  /**
-   * Stop the managed process
-   */
-  stop(): void {
-    const name = this.fullProcessName;
-    this.isManuallyStopped = true;
-    
-    this.setState('stopping');
-    
-    if (this.subprocess) {
-      this.subprocess.kill();
-      log.info(`[TSPM] Stopped process: ${name}`);
-      
-      // Emit stop event
-      this.eventEmitter.emit(createEvent(
-        EventTypeValues.PROCESS_STOP,
-        'ManagedProcess',
-        {
-          processName: this.config.name,
-          instanceId: this.instanceId,
-          pid: this.subprocess.pid,
-          reason: 'manual',
-        },
-        EventPriorityValues.NORMAL
-      ));
-    }
-    
-    this.setState('stopped');
-  }
-  
-  /**
-   * Set the process state and emit state change event
-   */
-  private setState(newState: ProcessState): void {
-    const previousState = this.currentState;
-    this.currentState = newState;
-    
-    // Emit state change event
-    this.eventEmitter.emit(createEvent(
-      EventTypeValues.PROCESS_STATE_CHANGE,
-      'ManagedProcess',
-      {
-        processName: this.config.name,
-        instanceId: this.instanceId,
-        previousState,
-        currentState: newState,
-      },
-      EventPriorityValues.LOW
-    ));
-  }
-
-  /**
-   * Get the current status of the managed process
-   */
-  getStatus(): ProcessStatus {
-    const exitCode = this.subprocess?.exitCode;
-    const uptime = this.startedAt ? Date.now() - this.startedAt : undefined;
-    return {
-      name: this.fullProcessName,
-      pid: this.subprocess?.pid,
-      killed: this.subprocess?.killed,
-      exitCode: exitCode !== null ? exitCode : undefined,
-      state: this.currentState,
-      restartCount: this.restartCount,
-      uptime,
-      instanceId: this.instanceId,
-    };
-  }
-  
-  /**
-   * Get the current state
-   */
-  getState(): ProcessState {
-    return this.currentState;
-  }
-  
-  /**
-   * Get the started at timestamp
-   */
-  getStartedAt(): number | undefined {
-    return this.startedAt;
-  }
-
-  /**
-   * Get real-time stats for the process
-   */
-  async getStats(): Promise<ProcessStats | null> {
-    if (!this.subprocess || !this.subprocess.pid) return null;
-    
-    const stats = await getProcessStats(this.subprocess.pid);
-    if (stats) {
-        this.lastStats = stats;
-    }
-    return stats;
-  }
-
-  /**
-   * Get the process configuration
-   */
-  getConfig(): ProcessConfig {
-    return this.config;
-  }
-
-  /**
-   * Get instance ID
-   */
-  getInstanceId(): number {
-    return this.instanceId;
-  }
-
-  /**
-   * Get last collected stats
-   */
-  getLastStats(): import('../utils/stats').ProcessStats | null {
-    return this.lastStats;
   }
 }

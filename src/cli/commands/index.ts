@@ -7,6 +7,7 @@ export * from './monit';
 export * from './cluster';
 export * from './scale';
 export * from './groups';
+export * from './dev';
 
 import { startCommand } from './start';
 import { stopCommand } from './stop';

@@ -6,7 +6,7 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 
 ---
 
-## Current Status: Phase 4 Complete ✅
+## Current Status: Phase 6 Complete ✅
 
 ### Implemented Features
 
@@ -202,32 +202,25 @@ processes:
 
 ---
 
-## Roadmap (Remaining Phases)
-
-### Phase 3: Monitoring & Observability ✅ (COMPLETED)
-
-- [x] Real-time CPU/Memory monitoring (enhanced dashboard)
-- [x] Structured logging with rotation
-- [x] Event system with Webhook support
-- [x] Health checks and readiness/liveness probes
-
-### Phase 4: Advanced Features ✅ (COMPLETED)
-
-- [x] Source map support for stack traces
-- [x] Environment variable management (.env)
-- [x] Pre/post scripts and lifecycle hooks
-
-### Phase 5: Developer Experience
+## Phase 5: Developer Experience
 
 - [ ] Hot reload (file watcher)
 - [ ] Interactive terminal
 - [ ] JSON API
 
-### Phase 6: Production Features
+---
 
-- [ ] Memory limits
-- [ ] Process priority (nice)
-- [ ] Container orchestration hints
+## Phase 6: Production Features ✅ (COMPLETED)
+
+| Feature                  | Status | Description                                              |
+| ------------------------ | ------ | -------------------------------------------------------- |
+| **Memory Limits**        | ✅     | maxMemory config for OOM restart                         |
+| **minUptime**           | ✅     | Minimum uptime before counting as successful start       |
+| **Restart Backoff**      | ✅     | Configurable restart delay (minRestartDelay, maxRestartDelay, restartBackoff) |
+| **Process Priority**    | ✅     | nice value support for CPU scheduling                   |
+| **Kubernetes Support**   | ✅     | Kubernetes config (labels, annotations, probes)          |
+| **Docker Support**      | ✅     | Docker config (container name, labels, limits)           |
+| **OOM Events**          | ✅     | process:oom event for memory limit detection            |
 
 ---
 
