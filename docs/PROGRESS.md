@@ -35,14 +35,14 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 
 | Feature               | Status | Description                      | Priority |
 | --------------------- | ------ | -------------------------------- | -------- |
-| **Startup scripts**   | ⏳     | Generate systemd/launchd scripts | High     |
-| **Save/Resurrect**    | ⏳     | Persist and restore process list | High     |
-| **Log flush**         | ⏳     | Clear all log files              | High     |
-| **Reset command**     | ⏳     | Reset restart counters           | Medium   |
+| **Startup scripts**   | ✅     | Generate systemd/launchd scripts | High     |
+| **Save/Resurrect**    | ✅     | Persist and restore process list | High     |
+| **Log flush**         | ✅     | Clear all log files              | High     |
+| **Reset command**     | ✅     | Reset restart counters           | Medium   |
+| **Static serve**      | ✅     | Serve static files               | Medium   |
+| **Prettylist**        | ✅     | Pretty-printed process list      | Medium   |
+| **Report**            | ✅     | Diagnostic report generation     | Medium   |
 | **Deployment**        | ⏳     | Remote deployment via SSH        | Medium   |
-| **Static serve**      | ⏳     | Serve static files               | Medium   |
-| **Prettylist**        | ⏳     | Pretty-printed process list      | Medium   |
-| **Report**            | ⏳     | Diagnostic report generation     | Medium   |
 | **Module system**     | ⏳     | Extensibility via modules        | Low      |
 | **Remote monitoring** | ⏳     | Cloud monitoring dashboard       | Low      |
 | **Custom metrics**    | ⏳     | Application metrics API          | Low      |
@@ -169,14 +169,14 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 | `flush`      | ⏳     | Clear all log files |
 | `reloadLogs` | ⏳     | Reopen log files    |
 
-### 7.3: Process Utilities
+### 7.3: Process Utilities ✅ (COMPLETED)
 
 | Command      | Status | Description                  |
 | ------------ | ------ | ---------------------------- |
-| `reset`      | ⏳     | Reset restart counters       |
-| `prettylist` | ⏳     | Pretty-printed process list  |
-| `serve`      | ⏳     | Static file server           |
-| `report`     | ⏳     | Diagnostic report generation |
+| `reset`      | ✅     | Reset restart counters       |
+| `prettylist` | ✅     | Pretty-printed process list  |
+| `serve`      | ✅     | Static file server           |
+| `report`     | ✅     | Diagnostic report generation |
 
 ### 7.4: Deployment System
 
@@ -404,15 +404,17 @@ processes:
 - Memory limits and OOM detection
 - Process priority (nice values)
 - Container orchestration hints
-
-### In Progress / Planned ⏳
-
 - Startup scripts generation (systemd, launchd)
 - Process persistence (save/resurrect)
 - Log flush command
 - Reset restart counters
-- Deployment system
 - Static file server
+- Pretty-printed process list
+- Diagnostic report generation
+
+### In Progress / Planned ⏳
+
+- Deployment system
 - Module system
 - Remote monitoring
 
@@ -420,11 +422,16 @@ processes:
 
 ## Next Steps
 
-1. Implement `startup` command for systemd/launchd generation
-2. Implement `save` and `resurrect` commands
-3. Add `flush` command for log management
-4. Add `reset` command for restart counters
-5. Consider deployment system implementation
+1. Implement deployment system for remote SSH deployment
+2. Consider module system for extensibility
+3. Add remote monitoring capabilities
+
+---
+
+_Last Updated: 2026-02-13_
+_Total Tests: 47 passing_
+_Phase 7.3 Complete: Reset, Prettylist, Serve, Report_
+_Next: Phase 7.4 - Deployment System_
 
 ---
 

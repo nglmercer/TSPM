@@ -28,19 +28,21 @@ export class ManagedProcess {
   private instanceId: number;
   private restartCount = 0;
   private isManuallyStopped = false;
+  private isReady = false;
   private lastStats: ProcessStats | null = null;
   private currentState: ProcessState = PROCESS_STATE.STOPPED;
   private eventEmitter: EventEmitter;
   private startedAt?: number;
   private watcher?: FSWatcher;
   private memoryMonitorInterval?: Timer;
-  private firstStartTime?: number;
+  private listenTimeoutTimer?: Timer;
 
   constructor(config: ProcessConfig, instanceId = 0, eventEmitter?: EventEmitter) {
     this.config = config;
     this.instanceId = instanceId;
     this.eventEmitter = eventEmitter || getDefaultEmitter();
   }
+
 
   /**
    * Get formatted process name with instance ID
@@ -118,13 +120,14 @@ export class ManagedProcess {
       }
     }
 
-    // 3. Prepare Environment
+    // 3. Prepare Environment with instance variable support
+    const instanceVarName = this.config.instanceVar || DEFAULT_PROCESS_CONFIG.instanceVar;
     const env = { 
       ...process.env,
       ...dotEnvVars,
       ...this.config.env,
       [ENV_VARS.PROCESS_NAME]: name,
-      [ENV_VARS.INSTANCE_ID]: this.instanceId.toString(),
+      [instanceVarName]: this.instanceId.toString(),
     } as Record<string, string>;
 
     const cmd = [...(this.config.args || [])];
@@ -209,10 +212,12 @@ export class ManagedProcess {
 
   /**
    * Setup file watcher for hot reload
+   * Uses watchDelay from config (defaults to WATCH_CONFIG.debounceMs)
    */
   private setupWatcher(): void {
     const watchPath = this.config.cwd || process.cwd();
-    log.info(`${APP_CONSTANTS.LOG_PREFIX} Setup watcher for ${this.fullProcessName} on ${watchPath}`);
+    const watchDelay = this.config.watchDelay ?? WATCH_CONFIG.debounceMs;
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Setup watcher for ${this.fullProcessName} on ${watchPath} (delay: ${watchDelay}ms)`);
     
     let debounceTimer: Timer | null = null;
     
@@ -220,8 +225,9 @@ export class ManagedProcess {
       this.watcher = watch(watchPath, { recursive: true }, (event, filename) => {
         if (!filename) return;
 
-        // Ignore patterns
-        const isIgnored = WATCH_CONFIG.defaultIgnore.some(pattern => {
+        // Ignore patterns from config
+        const ignorePatterns = this.config.ignoreWatch || WATCH_CONFIG.defaultIgnore;
+        const isIgnored = ignorePatterns.some(pattern => {
           if (pattern.endsWith('/**')) {
             const dir = pattern.slice(0, -3);
             return filename.startsWith(dir);
@@ -236,11 +242,32 @@ export class ManagedProcess {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           this.restart(RESTART_REASON.WATCH);
-        }, WATCH_CONFIG.debounceMs);
+        }, watchDelay);
       });
     } catch (e) {
       log.error(`${APP_CONSTANTS.LOG_PREFIX} Failed to setup watcher: ${e}`);
     }
+  }
+
+  /**
+   * Signal that the process is ready (for waitReady)
+   * Applications can call this to indicate they're ready to accept traffic
+   */
+  public markReady(): void {
+    this.isReady = true;
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Process ${this.fullProcessName} marked as ready`);
+    
+    // Emit ready event
+    this.eventEmitter.emit(createEvent(
+      EventTypeValues.PROCESS_READY,
+      'ManagedProcess',
+      {
+        processName: this.config.name,
+        instanceId: this.instanceId,
+        pid: this.subprocess?.pid,
+      },
+      EventPriorityValues.NORMAL
+    ));
   }
 
   /**

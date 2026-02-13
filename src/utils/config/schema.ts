@@ -103,6 +103,40 @@ const DockerConfigSchema = type({
 });
 
 /**
+ * Deployment environment configuration schema
+ */
+const DeploymentEnvConfigSchema = type({
+  /** Remote host (IP or hostname) */
+  'host': 'string>0',
+  /** SSH user */
+  'user': 'string>0',
+  /** SSH port */
+  'port?': 'number>=0',
+  /** SSH key path */
+  'key?': 'string',
+  /** Remote path where to deploy */
+  'path': 'string>0',
+  /** Pre-deploy commands/hooks */
+  'preDeploy?': 'string | string[]',
+  /** Post-deploy commands/hooks */
+  'postDeploy?': 'string | string[]',
+  /** Environment variables for deployment */
+  'env?': 'Record<string, string>',
+  /** Git reference (branch/tag/commit) to deploy */
+  'ref?': 'string',
+});
+
+/**
+ * Deployment configuration schema
+ */
+const DeploymentConfigSchema = type({
+  /** Git repository URL */
+  'repo?': 'string',
+  /** Deployment environments (staging, production, etc.) */
+  'environments?': 'Record<string, unknown>',
+});
+
+/**
  * ArkType schema for process configuration
  */
 export const ProcessConfigSchema = type({
@@ -138,14 +172,20 @@ export const ProcessConfigSchema = type({
   'stderr?': 'string',
   /** Combine stdout and stderr */
   'combineLogs?': 'boolean',
+  /** Merge logs from all instances (for clustering) */
+  'mergeLogs?': 'boolean',
   /** Log timestamp format */
   'logDateFormat?': 'string',
   /** Instances count (for clustering) */
   'instances?': 'number>=0',
   /** Execute as cron job */
   'cron?': 'string',
-  /** Kill process on stop signal */
+  /** Kill process on stop signal (ms) */
   'killTimeout?': 'number>=0',
+  /** Timeout for listen event - wait for app to be ready (ms) */
+  'listenTimeout?': 'number>=0',
+  /** Wait for ready signal from app before marking as started */
+  'waitReady?': 'boolean',
   /** Process namespace/group */
   'namespace?': 'string',
   /** Process user (Unix only) */
@@ -158,6 +198,8 @@ export const ProcessConfigSchema = type({
   'lbStrategy?': 'string',
   /** Instance weight for weighted load balancing */
   'instanceWeight?': 'number>=0',
+  /** Environment variable name for instance ID */
+  'instanceVar?': 'string',
   /** Health check configuration */
   'healthCheck?': HealthCheckConfigSchema,
   /** Instance ID (auto-assigned) */
@@ -174,6 +216,8 @@ export const ProcessConfigSchema = type({
   'maxMemory?': 'number>=0',
   /** Minimum uptime in ms before considering restart successful */
   'minUptime?': 'number>=0',
+  /** Watch delay in ms (debounce time for file changes) */
+  'watchDelay?': 'number>=0',
   /** Process labels for metadata */
   'labels?': 'Record<string, string>',
   /** Process annotations for metadata */
@@ -213,12 +257,25 @@ export const TSPMConfigSchema = type({
     'port?': 'number',
     'host?': 'string',
   },
+  /** Deployment configuration */
+  'deploy?': DeploymentConfigSchema,
 });
 
+
 /**
- * TSPM configuration type inferred from ArkType schema
+ * Deployment environment configuration type
  */
-export type TSPMConfig = typeof TSPMConfigSchema.infer;
+export type DeploymentEnvConfig = typeof DeploymentEnvConfigSchema.infer;
+
+/**
+ * Deployment configuration type
+ */
+export interface DeploymentConfig {
+  /** Git repository URL */
+  repo?: string;
+  /** Deployment environments (staging, production, etc.) */
+  environments?: Record<string, DeploymentEnvConfig>;
+}
 
 /**
  * Validation error details

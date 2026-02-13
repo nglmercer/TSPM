@@ -272,5 +272,24 @@ export function createProgram(): Command {
     .option('-o, --output <file>', 'Output file path (default: stdout)')
     .action(reportCommand);
 
+  // Deploy command
+  program
+    .command('deploy')
+    .description('Deploy application to remote server via SSH')
+    .argument('[environment]', 'Environment to deploy to (default: production)', 'production')
+    .option('-c, --config <file>', 'Configuration file path')
+    .option('--repo <url>', 'Git repository URL (overrides config)')
+    .option('--local <path>', 'Local path to deploy from (alternative to git)')
+    .option('-v, --verbose', 'Verbose output', false)
+    .action((environment, options) => {
+      deployCommand({
+        environment,
+        config: options.config,
+        repo: options.repo,
+        localPath: options.local,
+        verbose: options.verbose,
+      });
+    });
+
   return program;
 }

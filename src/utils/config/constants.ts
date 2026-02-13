@@ -79,6 +79,10 @@ export const DEFAULT_PROCESS_CONFIG = {
   restartBackoff: 2,
   /** Kill timeout in milliseconds */
   killTimeout: 5000,
+  /** Listen timeout in milliseconds (wait for app to be ready) */
+  listenTimeout: 0,
+  /** Wait for ready signal from app */
+  waitReady: false,
   /** Default log directory */
   logDir: 'logs',
   /** PID file directory */
@@ -87,6 +91,12 @@ export const DEFAULT_PROCESS_CONFIG = {
   maxMemory: 0,
   /** Minimum uptime in ms before considering restart successful */
   minUptime: 0,
+  /** Watch delay in ms (debounce for file changes) */
+  watchDelay: 100,
+  /** Merge logs from all instances */
+  mergeLogs: false,
+  /** Instance variable name for clustering */
+  instanceVar: 'NODE_APP_INSTANCE',
 } as const;
 
 /**

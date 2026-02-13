@@ -1,0 +1,1 @@
+{processes: [{name: example-app,script: bun,args: [run,src/index.ts],env: {NODE_ENV: production,PORT: "3000"},autorestart: true,stdout: logs/example-app.log}],defaults: {autorestart: true,maxRestarts: 10},logDir: logs}

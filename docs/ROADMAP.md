@@ -131,12 +131,12 @@ processes:
 - [x] `reloadLogs` command - Reopen log files (for log rotation external tools)
 - [ ] Log streaming to external services (Loggly, Papertrail, etc.)
 
-### 7.3: Process Utilities (Medium Priority)
+### 7.3: Process Utilities ✅ (COMPLETED)
 
-- [ ] `reset` command - Reset process restart counters
-- [ ] `prettylist` command - Pretty-printed JSON process list
-- [ ] `serve <path> <port>` command - Static file server
-- [ ] `report` command - Generate diagnostic report
+- [x] `reset` command - Reset process restart counters
+- [x] `prettylist` command - Pretty-printed JSON process list
+- [x] `serve <path> <port>` command - Static file server
+- [x] `report` command - Generate diagnostic report
 
 ### 7.4: Deployment System (Medium Priority)
 
@@ -162,20 +162,6 @@ processes:
     merge_logs: false # Merge logs from all instances
 ```
 
-### 7.6: Module System (Low Priority)
-
-- [ ] `install <module>` command - Install TSPM module
-- [ ] `uninstall <module>` command - Remove TSPM module
-- [ ] Module API for extensions
-- [ ] Community modules support
-
-### 7.7: Remote Monitoring (Low Priority)
-
-- [ ] `link` command - Connect to TSPM Cloud
-- [ ] Real-time remote monitoring dashboard
-- [ ] Custom metrics API (similar to @pm2/io)
-- [ ] Historical metrics storage
-
 ---
 
 ## Implementation Priority
@@ -188,37 +174,34 @@ processes:
 | Medium   | Reset command     | Phase 7 | ⏳     |
 | Medium   | Deployment system | Phase 7 | ⏳     |
 | Medium   | Static serve      | Phase 7 | ⏳     |
-| Low      | Module system     | Phase 7 | ⏳     |
-| Low      | Remote monitoring | Phase 7 | ⏳     |
 
 ---
 
 ## PM2 Feature Comparison
 
-| Feature            | PM2 | TSPM | Notes                      |
-| ------------------ | --- | ---- | -------------------------- |
-| Process management | ✅  | ✅   | Core feature               |
-| Clustering         | ✅  | ✅   | Multiple instances         |
-| Load balancing     | ✅  | ✅   | 7 strategies               |
-| Health checks      | ✅  | ✅   | HTTP/TCP/Command           |
-| Log management     | ✅  | ✅   | File logging + rotation    |
-| Hot reload         | ✅  | ✅   | File watcher               |
-| Environment vars   | ✅  | ✅   | .env support               |
-| Source maps        | ✅  | ✅   | Stack trace support        |
-| Webhooks           | ✅  | ✅   | Event notifications        |
-| Startup scripts    | ✅  | ✅   | systemd/launchd generation |
-| Save/Resurrect     | ✅  | ✅   | Process persistence        |
-| Log flush          | ✅  | ✅   | Clear logs command         |
-| Log reload         | ✅  | ✅   | Reload logs command        |
-| Deployment         | ✅  | ❌   | Remote deploy via SSH      |
-| Static serve       | ✅  | ❌   | Serve static files         |
-| Reset counters     | ✅  | ❌   | Reset restart count        |
-| Module system      | ✅  | ❌   | Extensibility              |
-| Remote monitoring  | ✅  | ❌   | PM2 Plus equivalent        |
-| Custom metrics     | ✅  | ❌   | @pm2/io equivalent         |
+| Feature            | PM2 | TSPM | Notes                       |
+| ------------------ | --- | ---- | --------------------------- |
+| Process management | ✅  | ✅   | Core feature                |
+| Clustering         | ✅  | ✅   | Multiple instances          |
+| Load balancing     | ✅  | ✅   | 7 strategies                |
+| Health checks      | ✅  | ✅   | HTTP/TCP/Command            |
+| Log management     | ✅  | ✅   | File logging + rotation     |
+| Hot reload         | ✅  | ✅   | File watcher                |
+| Environment vars   | ✅  | ✅   | .env support                |
+| Source maps        | ✅  | ✅   | Stack trace support         |
+| Webhooks           | ✅  | ✅   | Event notifications         |
+| Startup scripts    | ✅  | ✅   | systemd/launchd generation  |
+| Save/Resurrect     | ✅  | ✅   | Process persistence         |
+| Log flush          | ✅  | ✅   | Clear logs command          |
+| Log reload         | ✅  | ✅   | Reload logs command         |
+| Static serve       | ✅  | ✅   | Serve static files          |
+| Reset counters     | ✅  | ✅   | Reset restart count         |
+| Prettylist         | ✅  | ✅   | Pretty-printed process list |
+| Diagnostic report  | ✅  | ✅   | Generate diagnostic report  |
+| Deployment         | ✅  | ❌   | Remote deploy via SSH       |
 
 ---
 
 _Last Updated: 2026-02-13_
-_Phase 6 Complete: Memory Limits, Priority, Container Support_
-_Next: Phase 7 - PM2 Parity Features_
+_Phase 7.3 Complete: Reset, Prettylist, Serve, Report_
+_Next: Phase 7.4 - Deployment System_
