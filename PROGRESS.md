@@ -6,7 +6,7 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 
 ---
 
-## Current Status: Phase 1 Complete ✅
+## Current Status: Phase 2 Complete ✅
 
 ### Implemented Features
 
@@ -18,6 +18,12 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 | Config loading | ✅ | YAML, JSON, JSONC support |
 | File logging | ✅ | stdout/stderr to log files |
 | Graceful shutdown | ✅ | SIGINT/SIGTERM handling |
+| **Process clustering** | ✅ | Multiple instances per process |
+| **Load balancing** | ✅ | 7 strategies (round-robin, random, least-connections, etc.) |
+| **Process groups** | ✅ | Namespaces and cluster groups |
+| **Instance ID tracking** | ✅ | Auto-assigned instance IDs |
+| **Event system** | ✅ | Process state change events |
+| **Health checks** | ✅ | HTTP, TCP, command-based probes |
 
 ---
 
@@ -44,6 +50,40 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 - **PID file management**: `.tspm/` directory
 - **Status persistence**: `status.json` for process state
 - **Config file detection**: Auto-discovery of tspm.yaml/json/jsonc
+
+---
+
+## Phase 2: Process Management Enhancements ✅ (COMPLETED)
+
+### New CLI Commands
+
+| Command | Status | Description |
+|---------|--------|-------------|
+| `cluster [name]` | ✅ | Show cluster information |
+| `scale <name> <count>` | ✅ | Scale cluster instances |
+| `groups` | ✅ | Show process groups and namespaces |
+
+### Load Balancing Strategies
+
+| Strategy | Status | Description |
+|----------|--------|-------------|
+| round-robin | ✅ | Distributes requests equally |
+| random | ✅ | Random instance selection |
+| least-connections | ✅ | Fewest active connections |
+| least-cpu | ✅ | Lowest CPU usage |
+| least-memory | ✅ | Lowest memory usage |
+| ip-hash | ✅ | Consistent client-to-instance mapping |
+| weighted | ✅ | Weight-based distribution |
+
+### Health Check Protocols
+
+| Protocol | Status | Description |
+|----------|--------|-------------|
+| HTTP | ✅ | GET/POST/PUT requests |
+| HTTPS | ✅ | Secure HTTP requests |
+| TCP | ✅ | TCP port connectivity |
+| command | ✅ | Shell command execution |
+| none | ✅ | No health check |
 
 ---
 
@@ -89,13 +129,19 @@ TSPM/
 │   │   ├── ManagedProcess.ts  # Process management
 │   │   ├── ProcessManager.ts # Multi-process manager
 │   │   └── types.ts           # Type definitions
-│   └── utils/config/
-│       ├── constants.ts        # Constants & defaults
-│       ├── init.ts            # Initialization
-│       ├── json.ts            # JSON utilities
-│       ├── manager.ts         # Config manager
-│       ├── schema.ts          # Validation schema
-│       └── yaml.ts            # YAML utilities
+│   └── utils/
+│       ├── config/
+│       │   ├── constants.ts        # Constants & defaults
+│       │   ├── init.ts            # Initialization
+│       │   ├── json.ts            # JSON utilities
+│       │   ├── manager.ts         # Config manager
+│       │   ├── schema.ts          # Validation schema
+│       │   └── yaml.ts            # YAML utilities
+│       ├── loadbalancer.ts       # Load balancing strategies
+│       ├── events.ts             # Event system
+│       ├── healthcheck.ts        # Health checks
+│       ├── logger.ts            # Logging
+│       └── stats.ts             # Process statistics
 ├── tests/                    # Test suite
 ├── examples/                # Example scripts
 ├── tspm.yaml               # Example config
@@ -118,26 +164,48 @@ bun run src/cli/index.ts logs
 
 # Stop all
 bun run src/cli/index.ts stop --all
+
+# Show clusters
+bun run src/cli/index.ts cluster
+
+# Show process groups
+bun run src/cli/index.ts groups
+```
+
+### Configuration Example (Phase 2)
+
+```yaml
+processes:
+  - name: api-server
+    script: ./server.js
+    instances: 4
+    lbStrategy: round-robin
+    healthCheck:
+      enabled: true
+      protocol: http
+      path: /health
+      interval: 30000
+      retries: 3
+    clusterGroup: api
+
+  - name: worker
+    script: ./worker.js
+    instances: 2
+    namespace: background-jobs
 ```
 
 ---
 
 ## Roadmap (Remaining Phases)
 
-### Phase 2: Process Management Enhancements
-- [ ] Process clustering (multiple instances)
-- [ ] Load balancing strategies
-- [ ] Process groups and namespaces
-- [ ] Instance ID tracking
-
 ### Phase 3: Monitoring & Observability
-- [ ] Real-time CPU/Memory monitoring
+- [ ] Real-time CPU/Memory monitoring (enhanced)
 - [ ] Structured logging with rotation
-- [ ] Event system
-- [ ] Health checks
+- [ ] Event system for process state changes
+- [ ] Health checks and readiness/liveness probes
 
 ### Phase 4: Advanced Features
-- [ ] Source map support
+- [ ] Source map support for stack traces
 - [ ] Environment variable management
 - [ ] Pre/post scripts
 
@@ -157,9 +225,11 @@ bun run src/cli/index.ts stop --all
 
 1. Run `bun run src/cli/index.ts start tspm.yaml` to test
 2. Try `bun run src/cli/index.ts list` to see running processes
-3. Add more test cases as features are implemented
+3. Try `bun run src/cli/index.ts cluster` to see cluster information
+4. Add more test cases as features are implemented
 
 ---
 
 *Last Updated: 2026-02-02*
 *Total Tests: 42 passing*
+*Phase 2 Complete: Load Balancing, Clustering, Health Checks, Events*

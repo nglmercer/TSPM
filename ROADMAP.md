@@ -17,12 +17,43 @@
 - [x] Add PID file management
 - [x] Add process status file (ecosystem.json-like)
 
-## Phase 2: Process Management Enhancements
+## Phase 2: Process Management Enhancements ✅
 
-- [ ] Add process clustering (multiple instances)
-- [ ] Add load balancing strategies (round-robin, random, least-connections)
-- [ ] Implement process groups and namespaces
-- [ ] Add instance ID tracking
+- [x] Add process clustering (multiple instances)
+- [x] Add load balancing strategies (round-robin, random, least-connections, least-cpu, least-memory, ip-hash, weighted)
+- [x] Implement process groups and namespaces
+- [x] Add instance ID tracking
+- [x] Add event system for process state changes
+- [x] Add health checks (HTTP, HTTPS, TCP, command-based)
+
+### New CLI Commands in Phase 2
+
+- `cluster [name]` - Show cluster information
+- `scale <name> <count>` - Scale cluster instances
+- `groups` - Show process groups and namespaces
+
+### New Configuration Options
+
+```yaml
+processes:
+  - name: my-app
+    script: ./app.js
+    instances: 4              # Number of cluster instances
+    lbStrategy: round-robin   # Load balancing strategy
+    instanceWeight: 1         # Weight for weighted load balancing
+    namespace: production     # Process namespace
+    clusterGroup: api        # Cluster group name
+    healthCheck:
+      enabled: true
+      protocol: http
+      host: localhost
+      port: 3000
+      path: /health
+      interval: 30000
+      retries: 3
+```
+
+---
 
 ## Phase 3: Monitoring & Observability
 
@@ -31,12 +62,29 @@
 - [ ] Implement event system for process state changes
 - [ ] Add health checks and readiness/liveness probes
 
+### Phase 3 Goals
+
+- [ ] Real-time metrics dashboard in `monit` command
+- [ ] Log rotation with size limits
+- [ ] Structured JSON logging option
+- [ ] Event webhook notifications
+
+---
+
 ## Phase 4: Advanced Features
 
 - [ ] Add source map support for stack traces
 - [ ] Implement environment variable management
 - [ ] Add dependency injection for scripts
 - [ ] Support for pre/post start scripts and actions
+
+### Phase 4 Goals
+
+- [ ] `preStart` and `postStart` script hooks
+- [ ] Environment file support (.env)
+- [ ] Source map support for error tracing
+
+---
 
 ## Phase 5: Developer Experience
 
@@ -45,6 +93,14 @@
 - [ ] Add JSON API for programmatic access
 - [ ] Create PM2 migration guide/compatibility layer
 
+### Phase 5 Goals
+
+- [ ] `tspm dev` command for development mode
+- [ ] Interactive TUI for process management
+- [ ] REST API for remote management
+
+---
+
 ## Phase 6: Production Features
 
 - [ ] Add memory limit and auto-restart thresholds
@@ -52,13 +108,37 @@
 - [ ] Add process priority (nice values)
 - [ ] Support for container orchestration hints
 
+### Phase 6 Goals
+
+- [ ] Memory limit with OOM restart
+- [ ] Process nice values for CPU scheduling
+- [ ] Kubernetes/Docker metadata annotations
+
 ---
 
 ## Recommended Next Steps
 
-Start with **Phase 1** - Implement CLI commands to match PM2's core functionality. This will include:
+Start with **Phase 3** - Enhance monitoring and observability:
 
-1. CLI argument parser
-2. Daemon mode implementation
-3. Process state persistence
-4. Commands: start, stop, restart, list, logs, monit, delete
+1. Enhance the `monit` command with auto-refresh
+2. Add log rotation based on file size
+3. Implement structured JSON logging
+4. Add webhook support for event notifications
+
+---
+
+## Implementation Priority
+
+| Priority | Feature | Phase |
+|----------|---------|-------|
+| High | Enhanced monitoring | Phase 3 |
+| High | Log rotation | Phase 3 |
+| Medium | Source map support | Phase 4 |
+| Medium | Environment management | Phase 4 |
+| Low | Hot reload | Phase 5 |
+| Low | Interactive TUI | Phase 5 |
+
+---
+
+*Last Updated: 2026-02-02*
+*Phase 2 Complete: Clustering, Load Balancing, Health Checks, Events*
