@@ -11,7 +11,7 @@ describe('WebhookService', () => {
   const mockUrl = 'http://example.com/webhook';
   
   beforeEach(() => {
-    global.fetch = mock(() => Promise.resolve(new Response('OK')));
+    global.fetch = mock(() => Promise.resolve(new Response('OK'))) as any;
   });
 
   afterEach(() => {
@@ -36,11 +36,17 @@ describe('WebhookService', () => {
     const config: WebhookConfig = { url: mockUrl };
     webhookService = new WebhookService([config]);
     
+    // Create a valid ProcessStartEvent
     const event: TSPMEvent = {
         type: EventTypeValues.PROCESS_START,
-        payload: { name: 'test' },
+        data: { 
+            processName: 'test',
+            instanceId: 0,
+            config: {}
+        },
         timestamp: Date.now(),
-        id: '1'
+        source: 'test-source',
+        priority: 'normal'
     };
 
     await webhookService.send(event);
@@ -61,9 +67,14 @@ describe('WebhookService', () => {
     
     const startEvent: TSPMEvent = {
         type: EventTypeValues.PROCESS_START,
-        payload: { name: 'test' },
+        data: { 
+            processName: 'test',
+            instanceId: 0,
+            config: {}
+        },
         timestamp: Date.now(),
-        id: '1'
+        source: 'test',
+        priority: 'normal'
     };
 
     await webhookService.send(startEvent);
@@ -71,9 +82,14 @@ describe('WebhookService', () => {
 
     const stopEvent: TSPMEvent = {
         type: EventTypeValues.PROCESS_STOP,
-        payload: { name: 'test' },
+        data: { 
+            processName: 'test',
+            instanceId: 0,
+            reason: 'manual'
+        },
         timestamp: Date.now(),
-        id: '2'
+        source: 'test',
+        priority: 'normal'
     };
 
     await webhookService.send(stopEvent);
@@ -89,9 +105,14 @@ describe('WebhookService', () => {
     
     const event: TSPMEvent = {
         type: EventTypeValues.PROCESS_START,
-        payload: { name: 'test' },
+        data: { 
+            processName: 'test',
+            instanceId: 0,
+            config: {}
+        },
         timestamp: Date.now(),
-        id: '1'
+        source: 'test',
+        priority: 'normal'
     };
 
     await webhookService.send(event);
@@ -104,16 +125,21 @@ describe('WebhookService', () => {
   });
 
   it('should handle fetch errors gracefully', async () => {
-    global.fetch = mock(() => Promise.reject(new Error('Network error')));
+    global.fetch = mock(() => Promise.reject(new Error('Network error'))) as any;
     
     const config: WebhookConfig = { url: mockUrl };
     webhookService = new WebhookService([config]);
     
     const event: TSPMEvent = {
         type: EventTypeValues.PROCESS_START,
-        payload: { name: 'test' },
+        data: { 
+            processName: 'test',
+            instanceId: 0,
+            config: {}
+        },
         timestamp: Date.now(),
-        id: '1'
+        source: 'test',
+        priority: 'normal'
     };
 
     // Should not throw
@@ -122,16 +148,21 @@ describe('WebhookService', () => {
   });
 
   it('should handle non-200 responses', async () => {
-    global.fetch = mock(() => Promise.resolve(new Response('Error', { status: 500 })));
+    global.fetch = mock(() => Promise.resolve(new Response('Error', { status: 500 }))) as any;
     
     const config: WebhookConfig = { url: mockUrl };
     webhookService = new WebhookService([config]);
     
     const event: TSPMEvent = {
         type: EventTypeValues.PROCESS_START,
-        payload: { name: 'test' },
+        data: { 
+            processName: 'test',
+            instanceId: 0,
+            config: {}
+        },
         timestamp: Date.now(),
-        id: '1'
+        source: 'test',
+        priority: 'normal'
     };
 
     // Should not throw and log error (which we can't easily assert without mocking logger, but execution safety is key)

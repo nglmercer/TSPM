@@ -261,6 +261,11 @@ export const TSPMConfigSchema = type({
   'deploy?': DeploymentConfigSchema,
 });
 
+/**
+ * TSPM configuration type inferred from ArkType schema
+ */
+export type TSPMConfig = typeof TSPMConfigSchema.infer;
+
 
 /**
  * Deployment environment configuration type

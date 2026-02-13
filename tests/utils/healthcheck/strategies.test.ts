@@ -12,14 +12,14 @@ describe('HealthCheck Strategies', () => {
 
   beforeEach(() => {
     // Reset mocks
-    global.fetch = mock(() => Promise.resolve(new Response('OK')));
+    global.fetch = mock(() => Promise.resolve(new Response('OK'))) as any;
     
     // Mock Bun.connect
     Bun.connect = mock(() => Promise.resolve({
         end: mock(),
         write: mock(),
         // other socket methods
-    }));
+    })) as any;
 
     // Mock Bun.spawn
     Bun.spawn = mock(() => ({
@@ -28,7 +28,7 @@ describe('HealthCheck Strategies', () => {
         stderr: new ReadableStream(),
         kill: mock(),
         unref: mock(),
-    }));
+    })) as any;
   });
 
   afterEach(() => {
@@ -46,7 +46,7 @@ describe('HealthCheck Strategies', () => {
     });
 
     it('should return false when connection fails', async () => {
-      Bun.connect = mock(() => Promise.reject(new Error('Connection refused')));
+      Bun.connect = mock(() => Promise.reject(new Error('Connection refused'))) as any;
       const result = await checkTcpPort('localhost', 8080, 100);
       expect(result).toBe(false);
     });
@@ -54,7 +54,7 @@ describe('HealthCheck Strategies', () => {
 
   describe('checkHttp', () => {
     it('should return success for 200 OK', async () => {
-        global.fetch = mock(() => Promise.resolve(new Response('OK', { status: 200 })));
+        global.fetch = mock(() => Promise.resolve(new Response('OK', { status: 200 }))) as any;
         
         const result = await checkHttp('http', 'localhost', 8080, '/', HTTP_METHODS.GET, {}, 100);
         expect(result.success).toBe(true);
@@ -62,7 +62,7 @@ describe('HealthCheck Strategies', () => {
     });
 
     it('should return failure for unexpected status code', async () => {
-        global.fetch = mock(() => Promise.resolve(new Response('Bad Request', { status: 400 })));
+        global.fetch = mock(() => Promise.resolve(new Response('Bad Request', { status: 400 }))) as any;
         
         const result = await checkHttp('http', 'localhost', 8080, '/', HTTP_METHODS.GET, {}, 100, 200);
         expect(result.success).toBe(false);
@@ -71,14 +71,14 @@ describe('HealthCheck Strategies', () => {
     });
 
     it('should validate response body', async () => {
-        global.fetch = mock(() => Promise.resolve(new Response('{"status":"ok"}', { status: 200 })));
+        global.fetch = mock(() => Promise.resolve(new Response('{"status":"ok"}', { status: 200 }))) as any;
         
         const result = await checkHttp('http', 'localhost', 8080, '/', HTTP_METHODS.GET, {}, 100, 200, 'ok');
         expect(result.success).toBe(true);
     });
 
     it('should fail if body does not match', async () => {
-        global.fetch = mock(() => Promise.resolve(new Response('{"status":"error"}', { status: 200 })));
+        global.fetch = mock(() => Promise.resolve(new Response('{"status":"error"}', { status: 200 }))) as any;
         
         const result = await checkHttp('http', 'localhost', 8080, '/', HTTP_METHODS.GET, {}, 100, 200, 'ok');
         expect(result.success).toBe(false);
@@ -86,7 +86,7 @@ describe('HealthCheck Strategies', () => {
     });
     
     it('should handle network errors', async () => {
-        global.fetch = mock(() => Promise.reject(new Error('Network error')));
+        global.fetch = mock(() => Promise.reject(new Error('Network error'))) as any;
         
         const result = await checkHttp('http', 'localhost', 8080, '/', HTTP_METHODS.GET, {}, 100);
         expect(result.success).toBe(false);
@@ -108,7 +108,7 @@ describe('HealthCheck Strategies', () => {
             stderr: new ReadableStream(),
             kill: mock(),
             unref: mock(),
-        }));
+        })) as any;
 
         const result = await checkCommand('exit 1', 100);
         expect(result.success).toBe(false);
