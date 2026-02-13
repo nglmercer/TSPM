@@ -37,6 +37,12 @@ export interface InstanceInfo {
   weight: number;
   /** Whether the instance is healthy */
   healthy: boolean;
+  /** Current state */
+  state?: string;
+  /** PID */
+  pid?: number;
+  /** Start time */
+  startedAt?: number;
 }
 
 /**
@@ -62,7 +68,7 @@ export class RoundRobinBalancer {
     
     const instance = this.instances[this.currentIndex];
     this.currentIndex = (this.currentIndex + 1) % this.instances.length;
-    return instance;
+    return instance || null;
   }
 
   /**
@@ -94,7 +100,7 @@ export class RandomBalancer {
     if (this.instances.length === 0) return null;
     
     const index = Math.floor(Math.random() * this.instances.length);
-    return this.instances[index];
+    return this.instances[index] || null;
   }
 }
 
@@ -225,7 +231,7 @@ export class IpHashBalancer {
     }
     
     const index = Math.abs(hash) % this.instances.length;
-    return this.instances[index];
+    return this.instances[index] || null;
   }
 }
 
@@ -257,7 +263,7 @@ export class WeightedBalancer {
 
     for (let i = 0; i < this.instances.length; i++) {
       const instance = this.instances[i];
-      if (instance.weight > maxWeight) {
+      if (instance && instance.weight > maxWeight) {
         maxWeight = instance.weight;
         bestInstance = instance;
       }
@@ -268,7 +274,7 @@ export class WeightedBalancer {
       bestInstance.weight = Math.max(0, bestInstance.weight - 1);
     }
 
-    return bestInstance;
+    return bestInstance || null;
   }
 
   /**
@@ -276,7 +282,11 @@ export class WeightedBalancer {
    */
   resetWeights(originalWeights: number[]): void {
     for (let i = 0; i < this.instances.length && i < originalWeights.length; i++) {
-      this.instances[i].weight = originalWeights[i];
+      const instance = this.instances[i];
+      const weight = originalWeights[i];
+      if (instance && weight !== undefined) {
+        instance.weight = weight;
+      }
     }
   }
 }
@@ -430,8 +440,11 @@ export class ProcessCluster {
   /**
    * Get next instance using load balancing
    */
-  getNextInstance(): InstanceInfo | null {
-    return this.balancer.getInstance();
+  getNextInstance(clientIp?: string): InstanceInfo | null {
+    if (this.balancer instanceof IpHashBalancer) {
+      return this.balancer.getInstance(clientIp || '0.0.0.0');
+    }
+    return (this.balancer as any).getInstance();
   }
 
   /**

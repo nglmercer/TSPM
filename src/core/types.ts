@@ -86,7 +86,7 @@ export interface InstanceInfo {
   /** Whether the instance is healthy */
   healthy: boolean;
   /** Current state */
-  state: string;
+  state?: string;
   /** PID */
   pid?: number;
   /** Start time */

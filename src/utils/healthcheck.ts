@@ -121,38 +121,22 @@ export const DEFAULT_HEALTH_CHECK: HealthCheckConfig = {
  * TCP port checker
  */
 async function checkTcpPort(host: string, port: number, timeout: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    // Simple TCP check using Bun's built-in TCP capability
-    const conn = new Bun.Socket({
+  try {
+    const socket = await Bun.connect({
       hostname: host,
       port,
-      protocol: 'tcp',
-    } as any);
-    
-    let resolved = false;
-    
-    conn.onopen = () => {
-      resolved = true;
-      conn.close();
-      resolve(true);
-    };
-    
-    conn.onerror = () => {
-      if (!resolved) {
-        resolved = true;
-        conn.close();
-        resolve(false);
-      }
-    };
-    
-    setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        conn.close();
-        resolve(false);
-      }
-    }, timeout);
-  });
+      socket: {
+        data() {},
+        open() {},
+        close() {},
+        error() {},
+      },
+    });
+    socket.end();
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 /**

@@ -59,6 +59,8 @@ export function clusterCommand(name?: string): void {
     let idx = 0;
     for (const instName of instances) {
       const data = status[instName];
+      if (!data) continue;
+      
       const pidStr = data.pid?.toString() || '-';
       const statusStr = (data.state || 'unknown').toUpperCase();
       table.push([
