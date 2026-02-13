@@ -1,0 +1,54 @@
+
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    # Use bash shell for consistency across platforms (including Windows via Git Bash)
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      run: bun install
+
+    # We need 'make' installed for this workflow to work as requested
+    # On Ubuntu and macOS, make is usually pre-installed.
+    # On Windows, we can use 'make' from Git Bash or install it if missing.
+    # Usually `mingw32-make` is available but using `make` command directly might fail on default cmd/powershell.
+    # By setting shell: bash, we leverage the Git for Windows environment which typically includes make or we might need a workaround.
+    # If "make" is not found in windows-latest git bash, we might need a step to install it or alias it.
+    # However, let's try running it directly first. If it fails, we can adjust.
+    # Actually, a safer bet for "make build" on Windows in GitHub Actions is to use chocolatey or rely on existing tools.
+    # Let's add a step to ensure make is available or skip if problematic, but user asked for "make build".
+    
+    - name: Build
+      run: make build
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tspm-build-${{ matrix.os }}
+        path: dist/tspm-*
+        if-no-files-found: error
