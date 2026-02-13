@@ -40,6 +40,48 @@ export {
   type JsonParseResult,
 } from './json';
 
+// Schema and validation
+export {
+  validateConfig,
+  validateProcessConfig,
+  applyDefaults,
+  normalizeConfig,
+  type ProcessConfig,
+  type TSPMConfig,
+  type ValidationError,
+  type ValidationResult,
+} from './schema';
+
+// Config manager
+export {
+  ConfigManager,
+  ConfigNotFoundError,
+  ConfigParseError,
+  ConfigValidationError,
+  getConfigManager,
+  loadConfig,
+  validateConfigFile,
+  type ConfigManagerOptions,
+} from './manager';
+
+// Constants
+export {
+  DEFAULT_CONFIG_FILES,
+  DEFAULT_PROCESS_CONFIG,
+  RESTART_CONFIG,
+  WATCH_CONFIG,
+  LOG_CONFIG,
+  PROCESS_STATE,
+  EXIT_CODES,
+  SIGNALS,
+  ENV_VARS,
+  CONFIG_FILE_EXTENSIONS,
+  CONFIG_MIME_TYPES,
+  getDefaultLogPath,
+  getDefaultPidPath,
+  calculateRestartDelay,
+} from './constants';
+
 /**
  * Supported configuration file formats
  */

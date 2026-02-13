@@ -1,36 +1,66 @@
 /**
  * Configuration loader for TSPM
  * Supports YAML, JSON, and JSONC config files
+ * Uses the unified config manager for consistent behavior
  */
 
-import { file } from "bun";
-import type { TSPMConfig } from "./types";
+import { ConfigManager, ConfigNotFoundError, ConfigParseError, ConfigValidationError } from '../utils/config/manager';
+import type { TSPMConfig } from '../utils/config/schema';
 
 export class ConfigLoader {
+  private static manager: ConfigManager | null = null;
+
+  /**
+   * Get or create the config manager instance
+   */
+  private static getManager(): ConfigManager {
+    if (!this.manager) {
+      this.manager = new ConfigManager();
+    }
+    return this.manager;
+  }
+
   /**
    * Load and parse a configuration file
    * @param path Path to the config file (supports .yaml, .yml, .json, .jsonc)
    * @returns Parsed TSPMConfig object
+   * @throws ConfigNotFoundError if file not found
+   * @throws ConfigParseError if parsing fails
+   * @throws ConfigValidationError if validation fails
    */
   static async load(path: string): Promise<TSPMConfig> {
-    const configFile = file(path);
-    
-    if (!(await configFile.exists())) {
-      throw new Error(`Config file not found: ${path}`);
-    }
+    const manager = this.getManager();
+    return manager.load(path);
+  }
 
-    const content = await configFile.text();
+  /**
+   * Load configuration with auto-discovery
+   * Searches for default config files if path not specified
+   * @param path Optional path to config file
+   * @returns Parsed TSPMConfig object
+   */
+  static async loadWithDiscovery(path?: string): Promise<TSPMConfig> {
+    const manager = this.getManager();
+    return manager.load(path);
+  }
 
-    if (path.endsWith(".yaml") || path.endsWith(".yml")) {
-      // @ts-ignore - Bun.YAML might not be in the current types yet but it exists in Bun
-      return Bun.YAML.parse(content) as TSPMConfig;
-    }
+  /**
+   * Discover config file in current directory
+   * @returns Path to found config file or null
+   */
+  static discoverConfigFile(): string | null {
+    return this.getManager().discoverConfigFile();
+  }
 
-    if (path.endsWith(".jsonc")) {
-      // @ts-ignore - Bun.JSONC might not be in the current types yet but it exists in Bun
-      return Bun.JSONC.parse(content) as TSPMConfig;
-    }
-
-    return JSON.parse(content) as TSPMConfig;
+  /**
+   * Validate a configuration object
+   * @param config Configuration to validate
+   * @returns Validation result
+   */
+  static validate(config: unknown) {
+    return this.getManager().validateConfig(config);
   }
 }
+
+// Re-export error types for convenience
+export { ConfigNotFoundError, ConfigParseError, ConfigValidationError };

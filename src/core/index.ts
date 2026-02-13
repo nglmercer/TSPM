@@ -9,7 +9,36 @@
 export type {
   ProcessConfig,
   TSPMConfig,
-  ProcessStatus
+  ValidationResult,
+  ValidationError,
+  ProcessStatus,
+} from "./types";
+
+// Constants
+export {
+  DEFAULT_PROCESS_CONFIG,
+  DEFAULT_CONFIG_FILES,
+  PROCESS_STATE,
+  EXIT_CODES,
+  SIGNALS,
+  ENV_VARS,
+  RESTART_CONFIG,
+  WATCH_CONFIG,
+  LOG_CONFIG,
+} from "./types";
+
+// Config utilities
+export {
+  ConfigManager,
+  ConfigNotFoundError,
+  ConfigParseError,
+  ConfigValidationError,
+  getConfigManager,
+  loadConfig,
+  validateConfig,
+  validateProcessConfig,
+  normalizeConfig,
+  applyDefaults,
 } from "./types";
 
 // Classes
