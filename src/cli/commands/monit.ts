@@ -1,3 +1,4 @@
+import { APP_CONSTANTS, PROCESS_STATE, SIGNALS, EXIT_CODES } from '../../utils/config/constants';
 import { log } from '../../utils/logger';
 import { getProcessStats } from '../../utils/stats';
 import { readProcessStatus } from '../state/status';
@@ -94,7 +95,7 @@ export async function monitCommand(options: MonitOptions = {}): Promise<void> {
           totalMem += stats.memory;
           runningCount++;
         } else if (data.pid) {
-          currentState = 'STOPPED';
+          currentState = PROCESS_STATE.STOPPED;
         }
         
         // Health status
@@ -104,11 +105,11 @@ export async function monitCommand(options: MonitOptions = {}): Promise<void> {
 
         // Color code status
         let statusStr = currentState?.toUpperCase() || 'UNKNOWN';
-        if (statusStr === 'RUNNING') {
+        if (statusStr === PROCESS_STATE.RUNNING.toUpperCase()) {
           statusStr = `\x1b[32m${statusStr}\x1b[0m`; // Green
-        } else if (statusStr === 'STOPPED' || statusStr === 'ERRORED') {
+        } else if (statusStr === PROCESS_STATE.STOPPED.toUpperCase() || statusStr === PROCESS_STATE.ERRORED.toUpperCase()) {
           statusStr = `\x1b[31m${statusStr}\x1b[0m`; // Red
-        } else if (statusStr === 'RESTARTING') {
+        } else if (statusStr === PROCESS_STATE.RESTARTING.toUpperCase()) {
           statusStr = `\x1b[33m${statusStr}\x1b[0m`; // Yellow
         }
 
@@ -150,10 +151,10 @@ export async function monitCommand(options: MonitOptions = {}): Promise<void> {
 
   // Keep the process alive
   return new Promise(() => {
-    process.on('SIGINT', () => {
+    process.on(SIGNALS.INTERRUPT, () => {
       clearInterval(timer);
-      console.log('\n\x1b[36m[TSPM] Monitor stopped\x1b[0m');
-      process.exit(0);
+      console.log(`\n\x1b[36m${APP_CONSTANTS.LOG_PREFIX} Monitor stopped\x1b[0m`);
+      process.exit(EXIT_CODES.SUCCESS);
     });
   });
 }

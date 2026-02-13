@@ -59,8 +59,9 @@ export async function devCommand(
             });
         });
 
-    } catch (e: any) {
-        log.error(`${APP_CONSTANTS.LOG_PREFIX} Failed to start dev mode: ${e.message}`);
+    } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        log.error(`${APP_CONSTANTS.LOG_PREFIX} Failed to start dev mode: ${errorMessage}`);
         process.exit(EXIT_CODES.ERROR);
     }
 }

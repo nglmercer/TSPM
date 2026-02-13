@@ -309,6 +309,47 @@ export class Logger {
   }
 
   /**
+   * Set JSON output mode
+   */
+  setJson(json: boolean): void {
+    this.json = json;
+  }
+
+  /**
+   * Set file output enabled
+   */
+  setFileOutput(fileOutput: boolean): void {
+    this.fileOutput = fileOutput;
+  }
+
+  /**
+   * Set log file path
+   */
+  setFile(file: string): void {
+    this.file = file;
+    if (file && this.fileOutput) {
+      const dir = dirname(file);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+    }
+  }
+
+  /**
+   * Set console output enabled
+   */
+  setConsole(console: boolean): void {
+    this.console = console;
+  }
+
+  /**
+   * Set colors enabled
+   */
+  setColors(colors: boolean): void {
+    this.colors = colors;
+  }
+
+  /**
    * Create a child logger with process context
    */
   child(process: string, options?: Partial<LoggerOptions>): Logger {
@@ -431,11 +472,11 @@ export function getLogger(options?: LoggerOptions): Logger {
 export function configureLogger(options: LoggerOptions): Logger {
   const logger = getLogger();
   if (options.level) logger.setLevel(options.level);
-  if (options.json !== undefined) (logger as any).json = options.json;
-  if (options.fileOutput !== undefined) (logger as any).fileOutput = options.fileOutput;
-  if (options.file !== undefined) (logger as any).file = options.file;
-  if (options.console !== undefined) (logger as any).console = options.console;
-  if (options.colors !== undefined) (logger as any).colors = options.colors;
+  if (options.json !== undefined) logger.setJson(options.json);
+  if (options.fileOutput !== undefined) logger.setFileOutput(options.fileOutput);
+  if (options.file !== undefined) logger.setFile(options.file);
+  if (options.console !== undefined) logger.setConsole(options.console);
+  if (options.colors !== undefined) logger.setColors(options.colors);
   
   if (options.file && options.fileOutput) {
     const dir = dirname(options.file);

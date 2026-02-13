@@ -5,7 +5,7 @@ export interface TableOptions {
   head: string[];
   colWidths?: number[];
   chars?: Record<string, string>;
-  style?: Record<string, any>;
+  style?: Record<string, unknown>;
 }
 
 export class CliTable {
@@ -28,7 +28,7 @@ export class CliTable {
     });
   }
 
-  push(...rows: any[][]): void {
+  push(...rows: (string | number | boolean | null | undefined)[][]): void {
     this.table.push(...rows);
   }
 
@@ -44,7 +44,7 @@ export class CliTable {
 /**
  * Quick create and render a table
  */
-export function printTable(head: string[], rows: any[][]): void {
+export function printTable(head: string[], rows: (string | number | boolean | null | undefined)[][]): void {
   const table = new CliTable({ head });
   table.push(...rows);
   table.render();

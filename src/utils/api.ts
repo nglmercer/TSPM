@@ -78,8 +78,9 @@ export function startApi(manager: ProcessManager, config: ApiConfig) {
                                 default:
                                     return Response.json({ success: false, error: API_MESSAGES.INVALID_ACTION }, { status: HTTP_STATUS.BAD_REQUEST });
                             }
-                        } catch (e: any) {
-                            return Response.json({ success: false, error: e.message }, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR });
+                        } catch (e: unknown) {
+                            const errorMessage = e instanceof Error ? e.message : String(e);
+                            return Response.json({ success: false, error: errorMessage }, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR });
                         }
                     }
                 }
