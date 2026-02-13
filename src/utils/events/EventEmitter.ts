@@ -278,7 +278,7 @@ export function emitProcessEvent(
       processName,
       instanceId,
       ...data,
-    },
+    } as any,
     priority
   ));
 }

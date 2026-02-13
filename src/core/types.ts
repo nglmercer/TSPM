@@ -22,8 +22,10 @@ export {
   RESTART_CONFIG,
   WATCH_CONFIG,
   LOG_CONFIG,
-  type ProcessState,
 } from '../utils/config/constants';
+
+import { type ProcessState } from '../utils/config/constants';
+export { type ProcessState } from '../utils/config/constants';
 
 // Re-export config utilities
 export {

@@ -5,6 +5,7 @@ import {
   type HealthCheckProtocol,
   type HealthStatus
 } from '../config/constants';
+export type { HealthCheckProtocol, HealthStatus };
 import { type HealthCheckConfig } from './types';
 
 export * from './types';

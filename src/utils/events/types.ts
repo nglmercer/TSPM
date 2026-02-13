@@ -294,6 +294,18 @@ export interface ConfigReloadEvent extends BaseEvent {
 }
 
 /**
+ * Config change event
+ */
+export interface ConfigChangeEvent extends BaseEvent {
+  type: typeof EventTypeValues.CONFIG_CHANGE;
+  data: {
+    key: string;
+    oldValue: unknown;
+    newValue: unknown;
+  };
+}
+
+/**
  * All event types union
  */
 export type TSPMEvent = 
@@ -313,8 +325,10 @@ export type TSPMEvent =
   | MemoryHighEvent
   | SystemStartEvent 
   | SystemStopEvent 
+  | SystemStopEvent 
   | SystemErrorEvent
-  | ConfigReloadEvent;
+  | ConfigReloadEvent
+  | ConfigChangeEvent;
 
 export type SystemEventType = 
   | typeof EventTypeValues.SYSTEM_START 
