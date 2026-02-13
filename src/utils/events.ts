@@ -308,6 +308,8 @@ export interface EventEmitterOptions {
   verbose?: boolean;
   /** Error handler for listener errors */
   errorHandler?: (error: Error, event: TSPMEvent) => void;
+  /** Maximum event history size */
+  maxHistorySize?: number;
 }
 
 /**
@@ -326,7 +328,9 @@ export class EventEmitter {
       maxListeners: options.maxListeners ?? 0,
       verbose: options.verbose ?? false,
       errorHandler: options.errorHandler ?? ((error) => console.error('[TSPM Event Error]', error)),
+      maxHistorySize: options.maxHistorySize ?? 100,
     };
+    this.maxHistorySize = this.options.maxHistorySize;
   }
 
   /**
@@ -352,7 +356,11 @@ export class EventEmitter {
     priority: EventPriority,
     once: boolean
   ): this {
-    const listeners = this.getListenersForType(type);
+    let listeners = this.listeners.get(type);
+    if (!listeners) {
+      listeners = [];
+      this.listeners.set(type, listeners);
+    }
     
     // Check max listeners limit
     if (this.options.maxListeners > 0 && listeners.length >= this.options.maxListeners) {

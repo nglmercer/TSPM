@@ -1,12 +1,24 @@
 import type { ProcessConfig, ProcessStatus, InstanceInfo, ClusterInfo, ProcessGroup } from "./types";
 import { ManagedProcess } from "./ManagedProcess";
 import { ProcessCluster, LoadBalancerFactory, type LoadBalanceStrategy } from "../utils/loadbalancer";
+import { MonitoringService, createMonitoringService, type MonitoringServiceOptions } from "../utils/monitoring";
+import { EventEmitter, getDefaultEmitter, EventTypeValues, EventPriorityValues, createEvent } from "../utils/events";
+import type { HealthCheckConfig } from "../utils/healthcheck";
 
 export class ProcessManager {
   private processes: Map<string, ManagedProcess> = new Map();
   private clusters: Map<string, ProcessCluster> = new Map();
   private namespaces: Map<string, Set<string>> = new Map();
   private clusterGroups: Map<string, Set<string>> = new Map();
+  private monitoringService?: MonitoringService;
+  private eventEmitter: EventEmitter;
+  
+  constructor(options?: { monitoring?: MonitoringServiceOptions }) {
+    this.eventEmitter = getDefaultEmitter();
+    if (options?.monitoring) {
+      this.monitoringService = createMonitoringService(options.monitoring);
+    }
+  }
 
   /**
    * Add a new process to be managed

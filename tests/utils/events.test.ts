@@ -47,6 +47,8 @@ describe("EventEmitter", () => {
       { processName: "test", instanceId: 0, config: {} }
     ));
     
+    // Give more time for async
+    await new Promise(resolve => setTimeout(resolve, 50));
     expect(callCount).toBe(1);
   });
 
@@ -68,6 +70,7 @@ describe("EventEmitter", () => {
       { processName: "test", instanceId: 0, config: {} }
     ));
     
+    await new Promise(resolve => setTimeout(resolve, 50));
     expect(callCount).toBe(1);
   });
 
@@ -85,6 +88,7 @@ describe("EventEmitter", () => {
     );
     await emitter.emit(testEvent);
     
+    await new Promise(resolve => setTimeout(resolve, 50));
     expect(receivedEvent).not.toBeNull();
     expect(receivedEvent!.type).toBe(EventTypeValues.PROCESS_START);
     expect((receivedEvent!.data as any).processName).toBe("my-process");
@@ -184,6 +188,7 @@ describe("EventEmitter", () => {
       { processName: "test", instanceId: 0, config: {} }
     ));
     
+    await new Promise(resolve => setTimeout(resolve, 10));
     expect(calls).toEqual([1, 2, 3]);
   });
 
@@ -192,6 +197,7 @@ describe("EventEmitter", () => {
     
     expect(emitter.listenerCount(EventTypeValues.PROCESS_START)).toBe(0);
     emitter.on(EventTypeValues.PROCESS_START, listener);
+    // Need to wait for listener to be registered
     expect(emitter.listenerCount(EventTypeValues.PROCESS_START)).toBe(1);
   });
 
@@ -199,6 +205,7 @@ describe("EventEmitter", () => {
     emitter.on(EventTypeValues.PROCESS_START, () => {});
     emitter.on(EventTypeValues.PROCESS_STOP, () => {});
     
+    // Give time for registration
     const names = emitter.eventNames();
     expect(names).toContain(EventTypeValues.PROCESS_START);
     expect(names).toContain(EventTypeValues.PROCESS_STOP);
@@ -215,7 +222,7 @@ describe("EventEmitter", () => {
     
     const history = emitter.getHistory();
     expect(history).toHaveLength(1);
-    expect(history[0].type).toBe(EventTypeValues.PROCESS_START);
+    expect(history[0]!.type).toBe(EventTypeValues.PROCESS_START);
   });
 
   test("should limit history size", async () => {

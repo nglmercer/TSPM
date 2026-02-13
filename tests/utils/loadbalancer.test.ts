@@ -95,7 +95,7 @@ describe("RandomBalancer", () => {
     balancer.setInstances(instances);
     
     const result = balancer.getInstance();
-    expect([1, 2]).toContain(result?.id);
+    expect([1, 2]).toContain(result?.id as any);
   });
 
   test("should filter unhealthy instances", () => {
@@ -287,8 +287,8 @@ describe("WeightedBalancer", () => {
     
     balancer.resetWeights([5, 5]);
     
-    expect(instances[0].weight).toBe(5);
-    expect(instances[1].weight).toBe(5);
+    expect(instances[0]!.weight).toBe(5);
+    expect(instances[1]!.weight).toBe(5);
   });
 });
 
@@ -367,7 +367,7 @@ describe("ProcessCluster", () => {
     cluster.addInstance(1);
     const instances = cluster.getInstances();
     expect(instances).toHaveLength(1);
-    expect(instances[0].id).toBe(1);
+    expect(instances[0]!.id).toBe(1);
   });
 
   test("should add instance with config", () => {

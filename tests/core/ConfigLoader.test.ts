@@ -77,7 +77,9 @@ describe("ConfigLoader", () => {
             processes: "not-an-array"
         };
         
-        expect(() => ConfigLoader.validate(invalidConfig)).toThrow();
+        // Validation returns result instead of throwing
+        const result = ConfigLoader.validate(invalidConfig);
+        expect(result.valid).toBe(false);
     });
 
     test("should discover config file", () => {
