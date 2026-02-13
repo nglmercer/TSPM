@@ -26,8 +26,8 @@ enum TestResult {
 
 async function triggerCrash(): Promise<void> {
     try {
-        console.log(`💥 Sending request to ${TEST_CONFIG.CRASH_URL} to trigger crash...`);
-        await fetch(TEST_CONFIG.CRASH_URL);
+        console.log(`💥 Sending request to ${TEST_CONFIG.CRASH_URL}/crash to trigger crash...`);
+        await fetch(`${TEST_CONFIG.CRASH_URL}/crash`);
     } catch (e) {
         // Expected
     }
