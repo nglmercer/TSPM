@@ -1,6 +1,0 @@
-processes:
-  - name: "cluster-test"
-    script: "bun"
-    args: ["-e", "console.log('Instance', process.env.TSPM_INSTANCE_ID); setTimeout(() => {}, 10000)"]
-    instances: 3
-    stdout: "logs/cluster.log"

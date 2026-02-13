@@ -35,9 +35,9 @@ export async function getProcessStats(pid: number): Promise<ProcessStats | null>
       const parts = output.split(/\s+/);
       if (parts.length < 3) return null;
 
-      const cpu = parseFloat(parts[0]);
-      const memory = parseInt(parts[1]) * 1024; // convert KB to bytes
-      const etime = parts[2];
+      const cpu = parseFloat(parts[0]!);
+      const memory = parseInt(parts[1]!) * 1024; // convert KB to bytes
+      const etime = parts[2]!;
 
       return {
         cpu,
@@ -63,8 +63,8 @@ function parseElapsedTimeToSeconds(etime: string): number {
   let timeStr = etime;
 
   if (parts.length > 1) {
-    days = parseInt(parts[0]);
-    timeStr = parts[1];
+    days = parseInt(parts[0]!);
+    timeStr = parts[1]!;
   }
 
   const timeParts = timeStr.split(":").map(Number);
@@ -72,10 +72,10 @@ function parseElapsedTimeToSeconds(etime: string): number {
 
   if (timeParts.length === 3) {
     // hh:mm:ss
-    seconds += timeParts[0] * 3600 + timeParts[1] * 60 + timeParts[2];
+    seconds += (timeParts[0] ?? 0) * 3600 + (timeParts[1] ?? 0) * 60 + (timeParts[2] ?? 0);
   } else if (timeParts.length === 2) {
     // mm:ss
-    seconds += timeParts[0] * 60 + timeParts[1];
+    seconds += (timeParts[0] ?? 0) * 60 + (timeParts[1] ?? 0);
   }
 
   return seconds;

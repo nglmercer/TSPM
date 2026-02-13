@@ -162,7 +162,6 @@ export class ManagedProcess {
     }
     return stats;
   }
-}
 
   /**
    * Get the process configuration

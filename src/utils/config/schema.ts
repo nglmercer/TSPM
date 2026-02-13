@@ -1,10 +1,9 @@
 /**
  * Configuration Schema and Validation
- * Defines types and validation for TSPM process configuration using ArkType
+ * Defines types and validation for TSPM process configuration
  * @module utils/config/schema
  */
 
-import { type } from "arktype";
 import { 
   ErrorSeverityValues, 
   type ErrorSeverity,
@@ -12,76 +11,66 @@ import {
 } from './constants';
 
 /**
- * ArkType Schema for Process configuration
+ * Process configuration options
  */
-export const processConfigSchema = type({
+export interface ProcessConfig {
   /** Unique name for the process */
-  name: "string > 0",
+  name: string;
   /** Script or command to run */
-  script: "string > 0",
+  script: string;
   /** Command line arguments */
-  "args?": "string[]",
+  args?: string[];
   /** Environment variables */
-  "env?": "Record<string, string>",
+  env?: Record<string, string>;
   /** Current working directory */
-  "cwd?": "string",
+  cwd?: string;
   /** Auto-restart on exit (default: true) */
-  "autorestart?": "boolean",
+  autorestart?: boolean;
   /** Watch files for changes and restart */
-  "watch?": "boolean | string[]",
+  watch?: boolean | string[];
   /** Ignore patterns for watch mode */
-  "ignoreWatch?": "string[]",
+  ignoreWatch?: string[];
   /** Maximum restart attempts */
-  "maxRestarts?": "number",
+  maxRestarts?: number;
   /** Delay between restarts in ms (default: exponential backoff) */
-  "restartDelay?": "number",
+  restartDelay?: number;
   /** Standard output log file path */
-  "stdout?": "string",
+  stdout?: string;
   /** Standard error log file path */
-  "stderr?": "string",
+  stderr?: string;
   /** Combine stdout and stderr */
-  "combineLogs?": "boolean",
+  combineLogs?: boolean;
   /** Log timestamp format */
-  "logDateFormat?": "string",
+  logDateFormat?: string;
   /** Instances count (for clustering) */
-  "instances?": "number",
+  instances?: number;
   /** Execute as cron job */
-  "cron?": "string",
+  cron?: string;
   /** Kill process on stop signal */
-  "killTimeout?": "number",
+  killTimeout?: number;
   /** Process namespace/group */
-  "namespace?": "string",
+  namespace?: string;
   /** Process user (Unix only) */
-  "user?": "string",
+  user?: string;
   /** Process group (Unix only) */
-  "group?": "string",
-});
+  group?: string;
+}
 
 /**
- * Process configuration options inferred from schema
+ * TSPM configuration file structure
  */
-export type ProcessConfig = typeof processConfigSchema.infer;
-
-/**
- * ArkType Schema for TSPM configuration
- */
-export const tspmConfigSchema = type({
+export interface TSPMConfig {
   /** Array of process configurations */
-  processes: processConfigSchema.array(),
+  processes: ProcessConfig[];
   /** Default settings applied to all processes */
-  "defaults?": processConfigSchema.partial(),
+  defaults?: Partial<ProcessConfig>;
   /** Default namespace for all processes */
-  "namespace?": "string",
+  namespace?: string;
   /** Log directory for all processes */
-  "logDir?": "string",
+  logDir?: string;
   /** PID file directory */
-  "pidDir?": "string",
-});
-
-/**
- * TSPM configuration file structure inferred from schema
- */
-export type TSPMConfig = typeof tspmConfigSchema.infer;
+  pidDir?: string;
+}
 
 /**
  * Validation error details
@@ -108,6 +97,11 @@ export interface ValidationResult {
 }
 
 /**
+ * Required fields for process configuration
+ */
+const REQUIRED_PROCESS_FIELDS: (keyof ProcessConfig)[] = ['name', 'script'];
+
+/**
  * Validate a single process configuration
  *
  * @param config - Process configuration to validate
@@ -118,18 +112,141 @@ export function validateProcessConfig(
   config: unknown,
   index?: number
 ): ValidationError[] {
-  const result = processConfigSchema(config);
-  const prefix = index !== undefined ? `processes[${index}]` : "process";
-
-  if (result instanceof type.errors) {
-    return result.map((error) => ({
-      field: error.path.length > 0 ? `${prefix}.${error.path.join(".")}` : prefix,
-      message: error.message,
+  const errors: ValidationError[] = [];
+  const prefix = index !== undefined ? `processes[${index}]` : 'process';
+  
+  if (!config || typeof config !== 'object') {
+    errors.push({
+      field: prefix,
+      message: 'Process configuration must be an object',
       severity: ErrorSeverityValues.ERROR,
-    }));
+    });
+    return errors;
   }
-
-  return [];
+  
+  const proc = config as Record<string, unknown>;
+  
+  // Check required fields
+  for (const field of REQUIRED_PROCESS_FIELDS) {
+    if (proc[field] === undefined || proc[field] === null) {
+      errors.push({
+        field: `${prefix}.${field}`,
+        message: `Required field '${field}' is missing`,
+        severity: ErrorSeverityValues.ERROR,
+      });
+    }
+  }
+  
+  // Validate name
+  if (typeof proc.name !== 'undefined') {
+    if (typeof proc.name !== 'string' || proc.name.trim() === '') {
+      errors.push({
+        field: `${prefix}.name`,
+        message: 'Process name must be a non-empty string',
+        severity: ErrorSeverityValues.ERROR,
+      });
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(proc.name as string)) {
+      errors.push({
+        field: `${prefix}.name`,
+        message: 'Process name can only contain letters, numbers, underscores, and hyphens',
+        severity: ErrorSeverityValues.WARNING,
+      });
+    }
+  }
+  
+  // Validate script
+  if (typeof proc.script !== 'undefined') {
+    if (typeof proc.script !== 'string' || proc.script.trim() === '') {
+      errors.push({
+        field: `${prefix}.script`,
+        message: 'Script must be a non-empty string',
+        severity: ErrorSeverityValues.ERROR,
+      });
+    }
+  }
+  
+  // Validate args
+  if (typeof proc.args !== 'undefined') {
+    if (!Array.isArray(proc.args) || !proc.args.every(a => typeof a === 'string')) {
+      errors.push({
+        field: `${prefix}.args`,
+        message: 'Args must be an array of strings',
+        severity: ErrorSeverityValues.ERROR,
+      });
+    }
+  }
+  
+  // Validate env
+  if (typeof proc.env !== 'undefined') {
+    if (typeof proc.env !== 'object' || proc.env === null) {
+      errors.push({
+        field: `${prefix}.env`,
+        message: 'Env must be an object',
+        severity: ErrorSeverityValues.ERROR,
+      });
+    } else {
+      const env = proc.env as Record<string, unknown>;
+      for (const [key, value] of Object.entries(env)) {
+        if (typeof value !== 'string') {
+          errors.push({
+            field: `${prefix}.env.${key}`,
+            message: 'Environment variable values must be strings',
+            severity: ErrorSeverityValues.WARNING,
+          });
+        }
+      }
+    }
+  }
+  
+  // Validate numeric fields
+  const numericFields: (keyof ProcessConfig)[] = ['maxRestarts', 'restartDelay', 'instances', 'killTimeout'];
+  for (const field of numericFields) {
+    if (typeof proc[field] !== 'undefined') {
+      if (typeof proc[field] !== 'number' || (proc[field] as number) < 0) {
+        errors.push({
+          field: `${prefix}.${field}`,
+          message: `${field} must be a non-negative number`,
+          severity: ErrorSeverityValues.ERROR,
+        });
+      }
+    }
+  }
+  
+  // Validate boolean fields
+  const booleanFields: (keyof ProcessConfig)[] = ['autorestart', 'combineLogs'];
+  for (const field of booleanFields) {
+    if (typeof proc[field] !== 'undefined' && typeof proc[field] !== 'boolean') {
+      errors.push({
+        field: `${prefix}.${field}`,
+        message: `${field} must be a boolean`,
+        severity: ErrorSeverityValues.ERROR,
+      });
+    }
+  }
+  
+  // Validate watch
+  if (typeof proc.watch !== 'undefined') {
+    if (typeof proc.watch !== 'boolean' && !Array.isArray(proc.watch)) {
+      errors.push({
+        field: `${prefix}.watch`,
+        message: 'Watch must be a boolean or an array of paths',
+        severity: ErrorSeverityValues.ERROR,
+      });
+    }
+  }
+  
+  // Validate ignoreWatch
+  if (typeof proc.ignoreWatch !== 'undefined') {
+    if (!Array.isArray(proc.ignoreWatch) || !proc.ignoreWatch.every(w => typeof w === 'string')) {
+      errors.push({
+        field: `${prefix}.ignoreWatch`,
+        message: 'ignoreWatch must be an array of strings',
+        severity: ErrorSeverityValues.ERROR,
+      });
+    }
+  }
+  
+  return errors;
 }
 
 /**
@@ -139,44 +256,78 @@ export function validateProcessConfig(
  * @returns Validation result with errors and warnings
  */
 export function validateConfig(config: unknown): ValidationResult {
-  const result = tspmConfigSchema(config);
-
-  if (result instanceof type.errors) {
-    const errors: ValidationError[] = result.map((error) => ({
-      field: error.path.join("."),
-      message: error.message,
-      severity: ErrorSeverityValues.ERROR,
-    }));
-
+  const errors: ValidationError[] = [];
+  const warnings: ValidationError[] = [];
+  
+  if (!config || typeof config !== 'object') {
     return {
       valid: false,
-      errors,
+      errors: [{
+        field: 'root',
+        message: 'Configuration must be an object',
+        severity: ErrorSeverityValues.ERROR,
+      }],
       warnings: [],
     };
   }
-
-  // Check for duplicate process names (ArkType doesn't easily do this natively without custom morphs)
-  const errors: ValidationError[] = [];
-  const cfg = config as TSPMConfig;
+  
+  const cfg = config as Record<string, unknown>;
+  
+  // Check for processes array
+  if (!Array.isArray(cfg.processes)) {
+    errors.push({
+      field: 'processes',
+      message: 'Configuration must have a "processes" array',
+      severity: ErrorSeverityValues.ERROR,
+    });
+    return { valid: false, errors, warnings };
+  }
+  
+  // Validate each process
   const processNames = new Set<string>();
-
-  if (cfg.processes && Array.isArray(cfg.processes)) {
-    cfg.processes.forEach((proc, i) => {
-      if (proc.name && processNames.has(proc.name)) {
+  for (let i = 0; i < cfg.processes.length; i++) {
+    const procErrors = validateProcessConfig(cfg.processes[i], i);
+    
+    for (const error of procErrors) {
+      if (error.severity === ErrorSeverityValues.ERROR) {
+        errors.push(error);
+      } else {
+        warnings.push(error);
+      }
+    }
+    
+    // Check for duplicate names
+    const proc = cfg.processes[i] as Record<string, unknown>;
+    if (typeof proc.name === 'string') {
+      if (processNames.has(proc.name)) {
         errors.push({
           field: `processes[${i}].name`,
           message: `Duplicate process name: ${proc.name}`,
           severity: ErrorSeverityValues.ERROR,
         });
+      } else {
+        processNames.add(proc.name);
       }
-      processNames.add(proc.name);
-    });
+    }
   }
-
+  
+  // Validate defaults if present
+  if (cfg.defaults) {
+    const defaultErrors = validateProcessConfig(cfg.defaults, undefined);
+    for (const error of defaultErrors) {
+      if (error.severity === ErrorSeverityValues.ERROR) {
+        warnings.push({
+          ...error,
+          message: `Defaults: ${error.message}`,
+        });
+      }
+    }
+  }
+  
   return {
     valid: errors.length === 0,
     errors,
-    warnings: [],
+    warnings,
   };
 }
 
@@ -200,7 +351,7 @@ export function applyDefaults(
       ...defaults.env,
       ...process.env,
     },
-  } as ProcessConfig;
+  };
 }
 
 /**

@@ -156,13 +156,14 @@ async function startCommand(
       const proc = manager.getProcess(procConfig.name);
       if (proc) {
         const status = proc.getStatus();
+        const pid = status.pid ?? 0;
         updateProcessStatus(procConfig.name, {
-          pid: status.pid,
+          pid: pid,
           startedAt: Date.now(),
           config: procConfig,
           state: status.state || PROCESS_STATE.RUNNING,
         });
-        console.log(`[TSPM] ✓ Started: ${procConfig.name} (pid: ${status.pid})`);
+        console.log(`[TSPM] ✓ Started: ${procConfig.name} (pid: ${pid})`);
       }
     }
 
@@ -201,7 +202,9 @@ function stopCommand(options: { all?: boolean; name?: string }): void {
     console.log('[TSPM] Stopping all processes...');
     for (const [name, data] of Object.entries(status)) {
       try {
+        if (data.pid) {
         process.kill(data.pid, 'SIGTERM');
+      }
         removeProcessStatus(name);
         console.log(`[TSPM] ✓ Stopped: ${name}`);
       } catch (e) {
@@ -214,7 +217,9 @@ function stopCommand(options: { all?: boolean; name?: string }): void {
     const data = status[options.name];
     if (data) {
       try {
-        process.kill(data.pid, 'SIGTERM');
+        if (data.pid) {
+          process.kill(data.pid, 'SIGTERM');
+        }
         removeProcessStatus(options.name);
         console.log(`[TSPM] ✓ Stopped: ${options.name}`);
       } catch (e) {
@@ -376,10 +381,12 @@ async function reloadCommand(
   await restartCommand(configFile, options);
 }
 
+import { getProcessStats } from '../utils/stats';
+
 /**
- * Monit command - Real-time monitoring (simplified)
+ * Monit command - Real-time monitoring
  */
-function monitCommand(): void {
+async function monitCommand(): Promise<void> {
   const status = readProcessStatus();
   const processes = Object.entries(status);
 
@@ -394,9 +401,23 @@ function monitCommand(): void {
     console.log('│  No processes running                                      │');
   } else {
     for (const [name, data] of processes) {
-      const statusStr = (data.state || 'unknown').toUpperCase().padEnd(9);
+      let cpuStr = '-';
+      let memStr = '-';
+      let currentState = data.state;
+
+      if (data.pid) {
+        const stats = await getProcessStats(data.pid as number);
+        if (stats) {
+            cpuStr = `${stats.cpu.toFixed(1)}%`;
+            memStr = `${(stats.memory / 1024 / 1024).toFixed(1)} MB`;
+        } else {
+            currentState = 'STOPPED';
+        }
+      }
+
+      const statusStr = currentState.toUpperCase().padEnd(9);
       console.log(
-        `│ ${name.substring(0, 21).padEnd(21)} │ ${statusStr} │ -       │ -              │`
+        `│ ${name.substring(0, 21).padEnd(21)} │ ${statusStr} │ ${cpuStr.padEnd(6)} │ ${memStr.padEnd(14)} │`
       );
     }
   }
@@ -415,20 +436,29 @@ function createProgram(): Command {
     .name('tspm')
     .description('TSPM - TypeScript Process Manager\nA CLI for managing TypeScript/Node.js processes similar to PM2')
     .version('1.0.0')
+    .exitOverride((err) => {
+      if (err.code === 'commander.help') {
+        // Help was requested, exit gracefully
+        process.exit(0);
+      }
+      process.exit(err.exitCode || 1);
+    })
     .configureHelp({
       showGlobalOptions: true,
-    });
+      sortSubcommands: true,
+    })
+    .showHelpAfterError();
 
   // Start command
   program
     .command('start')
     .description('Start a process or ecosystem file')
-    .argument('[config-file]', 'Configuration file path (default: tspm.yaml)', 'tspm.yaml')
+    .option('-c, --config <file>', 'Configuration file path', 'tspm.yaml')
     .option('-n, --name <name>', 'Start only the specified process by name')
     .option('-w, --watch', 'Enable file watching for auto-restart', false)
     .option('-d, --daemon', 'Run in daemon mode (background)', false)
     .option('-e, --env <env...>', 'Environment variables to set')
-    .action(startCommand);
+    .action((options) => startCommand(options.config, options));
 
   // Stop command
   program
