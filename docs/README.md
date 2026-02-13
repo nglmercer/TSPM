@@ -1,121 +1,163 @@
 # TSPM Documentation
 
-Welcome to the TSPM (TypeScript Process Manager) documentation. This directory contains detailed guides and references for using TSPM.
+> Comprehensive documentation for TSPM (TypeScript Process Manager)
 
-## Documentation Index
-
-| Document                              | Description                                                                                                        |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| [**Deployment Guide**](DEPLOYMENT.md) | Learn how to deploy your applications to remote servers via SSH with pre/post hooks and multi-environment support. |
-| [**Startup Guide**](STARTUP_GUIDE.md) | Configure TSPM to start on system boot with systemd/launchd scripts and persist process lists.                     |
-| [**Progress Report**](PROGRESS.md)    | Track the implementation status of features and see what's been completed in each phase.                           |
-| [**Roadmap**](ROADMAP.md)             | View the development roadmap and planned features for future releases.                                             |
-
-## Quick Links
+## 📚 Documentation Index
 
 ### Getting Started
 
-1. **Installation** - See the main [README.md](../README.md) for installation instructions
-2. **Configuration** - Learn how to configure your processes in the main README
-3. **Basic Commands** - Reference the CLI command table in the main README
+| Document | Description |
+|----------|-------------|
+| [Main README](../README.md) | Project overview, features, and quick start |
+| [Configuration Reference](CONFIG.md) | Complete configuration options |
+| [CLI Reference](CLI.md) | Detailed CLI command documentation |
 
-### Production Deployment
+### Core Features
 
-1. **Remote Deployment** - Follow the [Deployment Guide](DEPLOYMENT.md) to deploy via SSH
-2. **System Startup** - Use the [Startup Guide](STARTUP_GUIDE.md) to configure boot persistence
-3. **Process Persistence** - Learn about `save` and `resurrect` commands
+| Document | Description |
+|----------|-------------|
+| [Deployment Guide](DEPLOYMENT.md) | Remote deployment via SSH with hooks |
+| [Startup Guide](STARTUP_GUIDE.md) | System startup scripts and persistence |
 
-### Feature Reference
+### Project Information
 
-#### Process Management
-
-- Start, stop, restart, reload processes
-- Process clustering with multiple instances
-- Auto-restart with exponential backoff
-- Resource limits (memory, restarts)
-
-#### Load Balancing
-
-- 7 strategies: round-robin, random, least-connections, least-cpu, least-memory, ip-hash, weighted
-- Configurable per process
-
-#### Health Checks
-
-- HTTP/HTTPS probes
-- TCP connectivity checks
-- Command-based checks
-- Configurable intervals and retries
-
-#### Monitoring
-
-- Real-time dashboard (`tspm monit`)
-- Log management with rotation
-- Webhook notifications
-- Diagnostic reports
-
-#### Deployment
-
-- Git-based deployment
-- Rsync-based local deployment
-- Pre/post deploy hooks
-- Multi-environment support
-
-## Configuration Reference
-
-### Process Options
-
-| Option        | Type            | Description                 |
-| ------------- | --------------- | --------------------------- |
-| `name`        | string          | Process name (required)     |
-| `script`      | string          | Script to run (required)    |
-| `args`        | string[]        | Arguments to pass to script |
-| `cwd`         | string          | Working directory           |
-| `instances`   | number          | Number of cluster instances |
-| `lbStrategy`  | string          | Load balancing strategy     |
-| `env`         | object          | Environment variables       |
-| `envFile`     | string          | Path to .env file           |
-| `maxMemory`   | string          | Memory limit (e.g., "500M") |
-| `maxRestarts` | number          | Maximum restart attempts    |
-| `autorestart` | boolean         | Enable auto-restart         |
-| `watch`       | boolean         | Enable file watching        |
-| `healthCheck` | object          | Health check configuration  |
-| `preStart`    | string/string[] | Pre-start hooks             |
-| `postStart`   | string/string[] | Post-start hooks            |
-
-### Health Check Options
-
-| Option     | Type    | Description                  |
-| ---------- | ------- | ---------------------------- |
-| `enabled`  | boolean | Enable health checks         |
-| `protocol` | string  | http, https, tcp, or command |
-| `host`     | string  | Host to check                |
-| `port`     | number  | Port to check                |
-| `path`     | string  | HTTP path (for http/https)   |
-| `interval` | number  | Check interval (ms)          |
-| `timeout`  | number  | Check timeout (ms)           |
-| `retries`  | number  | Retries before unhealthy     |
-
-### Deployment Options
-
-| Option         | Type            | Description                |
-| -------------- | --------------- | -------------------------- |
-| `repo`         | string          | Git repository URL         |
-| `environments` | object          | Environment configurations |
-| `host`         | string          | Remote host                |
-| `user`         | string          | SSH user                   |
-| `port`         | number          | SSH port (default: 22)     |
-| `key`          | string          | SSH key path               |
-| `path`         | string          | Remote deployment path     |
-| `ref`          | string          | Git branch/tag/commit      |
-| `preDeploy`    | string/string[] | Pre-deploy hooks           |
-| `postDeploy`   | string/string[] | Post-deploy hooks          |
-
-## Support
-
-- **Issues**: Report bugs on the GitHub issue tracker
-- **Contributions**: Pull requests are welcome
-- **Documentation**: Help improve these docs
+| Document | Description |
+|----------|-------------|
+| [Progress Report](PROGRESS.md) | Implementation status and completed features |
+| [Roadmap](ROADMAP.md) | Future development plans |
 
 ---
 
-_Return to [Main README](../README.md)_
+## 🚀 Quick Navigation
+
+### For New Users
+
+1. Start with the [Main README](../README.md) to understand what TSPM is
+2. Follow the Quick Start section to run your first process
+3. Read [Configuration Reference](CONFIG.md) to customize your setup
+
+### For Production Use
+
+1. Read [Deployment Guide](DEPLOYMENT.md) for remote deployment
+2. Read [Startup Guide](STARTUP_GUIDE.md) for boot persistence
+3. Review [CLI Reference](CLI.md) for all available commands
+
+### For Development
+
+1. Check [Configuration Reference](CONFIG.md) for dev options
+2. Review health check and lifecycle hook configuration
+3. Use `tspm dev` command for hot reload
+
+---
+
+## 📖 Feature Guides
+
+### Process Management
+
+- **Clustering**: Run multiple instances with `instances` config option
+- **Load Balancing**: 7 strategies (round-robin, random, least-connections, etc.)
+- **Health Checks**: HTTP, TCP, and command-based probes
+- **Lifecycle Hooks**: preStart, postStart, preStop, postStop
+
+### Deployment
+
+- **SSH Deployment**: Deploy to remote servers via SSH
+- **Pre/Post Hooks**: Run scripts before and after deployment
+- **Multi-Environment**: Support for staging, production, etc.
+
+### Operations
+
+- **Startup Scripts**: Generate systemd scripts for boot
+- **Save/Resurrect**: Persist and restore process lists
+- **Log Management**: File logging with rotation
+
+---
+
+## 🔧 Configuration Examples
+
+### Basic Process
+
+```yaml
+processes:
+  - name: my-app
+    script: bun
+    args: [run, src/index.ts]
+```
+
+### Clustered API
+
+```yaml
+processes:
+  - name: api
+    script: bun
+    args: [run, src/server.ts]
+    instances: 4
+    lbStrategy: round-robin
+    healthCheck:
+      enabled: true
+      protocol: http
+      path: /health
+```
+
+### Full Deployment
+
+```yaml
+deploy:
+  repo: https://github.com/user/app.git
+  environments:
+    production:
+      host: prod.example.com
+      user: deploy
+      path: /var/www/app
+      preDeploy:
+        - npm ci
+        - npm run build
+      postDeploy:
+        - tspm restart --all
+```
+
+---
+
+## 📁 File Structure
+
+```
+docs/
+├── README.md           # This file - documentation index
+├── CONFIG.md           # Configuration reference
+├── CLI.md              # CLI command reference
+├── DEPLOYMENT.md       # Deployment guide
+├── STARTUP_GUIDE.md    # Startup/persistence guide
+├── PROGRESS.md         # Implementation progress
+└── ROADMAP.md          # Development roadmap
+```
+
+---
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Process won't start | Check config file syntax and script path |
+| Health check failing | Verify the endpoint and network connectivity |
+| Deployment fails | Check SSH credentials and remote server access |
+| Startup script not working | Verify systemd installation and permissions |
+
+### Getting Help
+
+1. Run `tspm report` for diagnostic information
+2. Check [Progress Report](PROGRESS.md) for feature status
+3. Review [CLI Reference](CLI.md) for correct command usage
+
+---
+
+## Related Links
+
+- [GitHub Repository](https://github.com/nglmercer/tspm)
+- [Main README](../README.md)
+- [Examples Directory](../examples/)
+
+---
+
+_Last Updated: 2026-02-13_

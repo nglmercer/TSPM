@@ -73,7 +73,7 @@ async function executeSSH(
   }
 
   try {
-    const proc = spawn(['ssh', ...sshArgs], {
+    const proc = Bun.spawn(['ssh', ...sshArgs], {
       stdout: 'pipe',
       stderr: 'pipe',
     });
@@ -245,7 +245,7 @@ export async function deploy(options: DeploymentOptions): Promise<DeploymentResu
       }
 
       try {
-        const proc = spawn(['rsync', ...rsyncArgs], {
+        const proc = Bun.spawn(['rsync', ...rsyncArgs], {
           stdout: 'pipe',
           stderr: 'pipe',
         });
