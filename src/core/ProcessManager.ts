@@ -1,83 +1,82 @@
-import { spawn, type Subprocess } from "bun";
-import type { ProcessConfig } from "./Config";
+/**
+ * Process manager module for TSPM
+ * Manages multiple managed processes and their lifecycle
+ */
 
-export class ManagedProcess {
-  private subprocess?: Subprocess;
-  private config: ProcessConfig;
-  private restartCount = 0;
-  private isManuallyStopped = false;
-
-  constructor(config: ProcessConfig) {
-    this.config = config;
-  }
-
-  async start() {
-    this.isManuallyStopped = false;
-    console.log(`[TSPM] Starting process: ${this.config.name}`);
-    
-    this.subprocess = spawn({
-      cmd: [this.config.script, ...(this.config.args || [])],
-      env: { ...process.env, ...this.config.env },
-      stdout: "inherit",
-      stderr: "inherit",
-      onExit: (proc, exitCode, signalCode, error) => {
-        this.handleExit(exitCode, signalCode, error);
-      },
-    });
-  }
-
-  private async handleExit(exitCode: number | null, signalCode: number | null, error: Error | undefined) {
-    if (this.isManuallyStopped) return;
-
-    console.log(`[TSPM] Process ${this.config.name} exited with code ${exitCode}`);
-    
-    if (this.config.autorestart !== false) {
-      this.restartCount++;
-      const delay = Math.min(1000 * Math.pow(2, this.restartCount), 30000); // Exponential backoff
-      console.log(`[TSPM] Restarting ${this.config.name} in ${delay}ms...`);
-      setTimeout(() => this.start(), delay);
-    }
-  }
-
-  stop() {
-    this.isManuallyStopped = true;
-    if (this.subprocess) {
-      this.subprocess.kill();
-      console.log(`[TSPM] Stopped process: ${this.config.name}`);
-    }
-  }
-
-  getStatus() {
-    return {
-      name: this.config.name,
-      pid: this.subprocess?.pid,
-      killed: this.subprocess?.killed,
-      exitCode: this.subprocess?.exitCode,
-    };
-  }
-}
+import type { ProcessConfig, ProcessStatus } from "./types";
+import { ManagedProcess } from "./ManagedProcess";
 
 export class ProcessManager {
   private processes: Map<string, ManagedProcess> = new Map();
 
-  addProcess(config: ProcessConfig) {
+  /**
+   * Add a new process to be managed
+   * @param config Process configuration
+   */
+  addProcess(config: ProcessConfig): void {
     const process = new ManagedProcess(config);
     this.processes.set(config.name, process);
   }
 
-  async startAll() {
+  /**
+   * Get a managed process by name
+   * @param name Process name
+   * @returns ManagedProcess or undefined if not found
+   */
+  getProcess(name: string): ManagedProcess | undefined {
+    return this.processes.get(name);
+  }
+
+  /**
+   * Remove a process from management
+   * @param name Process name
+   */
+  removeProcess(name: string): void {
+    const process = this.processes.get(name);
+    if (process) {
+      process.stop();
+      this.processes.delete(name);
+    }
+  }
+
+  /**
+   * Start all managed processes
+   */
+  async startAll(): Promise<void> {
     for (const process of this.processes.values()) {
       await process.start();
     }
   }
 
-  stopAll() {
+  /**
+   * Stop all managed processes
+   */
+  stopAll(): void {
     for (const process of this.processes.values()) {
       process.stop();
     }
   }
 
-  getStatuses() {
+  /**
+   * Get status of all managed processes
+   * @returns Array of process statuses
+   */
+  getStatuses(): ProcessStatus[] {
     return Array.from(this.processes.values()).map(p => p.getStatus());
+  }
+
+  /**
+   * Get the number of managed processes
+   */
+  get processCount(): number {
+    return this.processes.size;
+  }
+
+  /**
+   * Check if a process exists
+   * @param name Process name
+   */
+  hasProcess(name: string): boolean {
+    return this.processes.has(name);
   }
 }

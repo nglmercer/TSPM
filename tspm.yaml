@@ -5,6 +5,7 @@ processes:
     env:
       PORT: "3000"
     autorestart: true
+    stdout: "logs/web-server.log"
 
   - name: "worker"
     script: "bun"

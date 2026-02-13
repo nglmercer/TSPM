@@ -1,5 +1,4 @@
-import { ConfigLoader } from "./src/core/Config";
-import { ProcessManager } from "./src/core/ProcessManager";
+import { ConfigLoader, ProcessManager } from "./src/core";
 
 async function main() {
   const configPath = process.argv[2] || "tspm.yaml";

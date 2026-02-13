@@ -1,0 +1,14 @@
+{
+  "processes": [
+    {
+      "name": "api-server",
+      "script": "bun",
+      "args": ["run", "examples/dummy-server.ts"],
+      "env": {
+        "PORT": "4000"
+      },
+      "autorestart": true,
+      "stdout": "logs/api.log"
+    }
+  ]
+}

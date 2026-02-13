@@ -1,21 +1,20 @@
+/**
+ * Configuration loader for TSPM
+ * Supports YAML, JSON, and JSONC config files
+ */
+
 import { file } from "bun";
-
-export interface ProcessConfig {
-  name: string;
-  script: string;
-  args?: string[];
-  env?: Record<string, string>;
-  autorestart?: boolean;
-  watch?: boolean | string[];
-}
-
-export interface TSPMConfig {
-  processes: ProcessConfig[];
-}
+import type { TSPMConfig } from "./types";
 
 export class ConfigLoader {
+  /**
+   * Load and parse a configuration file
+   * @param path Path to the config file (supports .yaml, .yml, .json, .jsonc)
+   * @returns Parsed TSPMConfig object
+   */
   static async load(path: string): Promise<TSPMConfig> {
     const configFile = file(path);
+    
     if (!(await configFile.exists())) {
       throw new Error(`Config file not found: ${path}`);
     }
