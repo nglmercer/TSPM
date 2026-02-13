@@ -54,15 +54,15 @@ describe("JSON/JSONC Utils", () => {
   });
 
   test("mergeJsonConfigs should deep merge objects", () => {
-    const base = { a: 1, b: { c: 2 } } as any;
-    const override = { b: { d: 3 }, e: 4 } as any;
+    const base: Record<string, unknown> = { a: 1, b: { c: 2 } };
+    const override: Record<string, unknown> = { b: { d: 3 }, e: 4 };
     const result = mergeJsonConfigs(base, override);
     
     expect(result).toEqual({
       a: 1,
       b: { c: 2, d: 3 },
       e: 4
-    } as any);
+    });
   });
 
   test("isJsoncContent should detect comments and trailing commas", () => {

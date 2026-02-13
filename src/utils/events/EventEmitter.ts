@@ -262,25 +262,32 @@ export function createEventEmitter(options?: EventEmitterOptions): EventEmitter 
 
 /**
  * Emit a typed process event to an emitter
+ * Note: The data structure must match the event type being emitted.
+ * For type safety, use createEvent() directly with proper event types.
  */
 export function emitProcessEvent(
   emitter: EventEmitter,
   type: EventType,
   processName: string,
   instanceId: number,
-  data: Record<string, unknown> = {},
+  data: import('./types').TSPMEvent['data'] = {} as unknown as import('./types').TSPMEvent['data'],
   priority: EventPriority = EventPriorityValues.NORMAL
 ): void {
-  emitter.emit(createEvent(
+  const eventData = {
+    processName,
+    instanceId,
+    ...data,
+  };
+  
+  // Emit with explicit type cast for process events
+  // The data always includes processName and instanceId for process events
+  emitter.emit({
     type,
-    'ManagedProcess',
-    {
-      processName,
-      instanceId,
-      ...data,
-    } as any,
-    priority
-  ));
+    timestamp: Date.now(),
+    source: 'ManagedProcess',
+    priority,
+    data: eventData,
+  } as TSPMEvent);
 }
 
 /**

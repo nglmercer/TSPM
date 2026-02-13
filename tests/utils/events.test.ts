@@ -11,7 +11,8 @@ import {
   EventPriorityValues,
   type TSPMEvent,
   type EventType,
-  type EventListener
+  type EventListener,
+  type ProcessStartEvent,
 } from "../../src/utils/events";
 
 describe("EventEmitter", () => {
@@ -91,7 +92,7 @@ describe("EventEmitter", () => {
     await new Promise(resolve => setTimeout(resolve, 50));
     expect(receivedEvent).not.toBeNull();
     expect(receivedEvent!.type).toBe(EventTypeValues.PROCESS_START);
-    expect((receivedEvent!.data as any).processName).toBe("my-process");
+    expect((receivedEvent! as ProcessStartEvent).data.processName).toBe("my-process");
   });
 
   test("should remove listener with off", async () => {
@@ -358,7 +359,7 @@ describe("createEvent", () => {
     expect(event.source).toBe("test-source");
     expect(event.timestamp).toBeDefined();
     expect(event.priority).toBe(EventPriorityValues.NORMAL);
-    expect((event.data as any).processName).toBe("my-process");
+    expect((event as ProcessStartEvent).data.processName).toBe("my-process");
   });
 
   test("should create event with custom priority", () => {
@@ -391,15 +392,16 @@ describe("emitProcessEvent", () => {
       receivedEvent = event;
     });
     
-    emitProcessEvent(emitter, EventTypeValues.PROCESS_START, "test-process", 0, { pid: 123 });
+    emitProcessEvent(emitter, EventTypeValues.PROCESS_START, "test-process", 0, { pid: 123 } as any);
     
     // Wait for async emission
     await new Promise(resolve => setTimeout(resolve, 10));
     
     expect(receivedEvent).not.toBeNull();
-    expect((receivedEvent!.data as any).processName).toBe("test-process");
-    expect((receivedEvent!.data as any).instanceId).toBe(0);
-    expect((receivedEvent!.data as any).pid).toBe(123);
+    const startEvent = receivedEvent! as ProcessStartEvent;
+    expect(startEvent.data.processName).toBe("test-process");
+    expect(startEvent.data.instanceId).toBe(0);
+    expect(startEvent.data.pid).toBe(123);
   });
 });
 

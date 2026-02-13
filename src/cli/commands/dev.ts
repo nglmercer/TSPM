@@ -1,7 +1,7 @@
 import { ConfigLoader, ProcessManager } from '../../core';
 import { log } from '../../utils/logger';
 import { startApi } from '../../utils/api';
-import { getDefaultEmitter, EventTypeValues } from '../../utils/events';
+import { getDefaultEmitter, EventTypeValues, type ProcessLogEvent } from '../../utils/events';
 import { APP_CONSTANTS, EXIT_CODES, SIGNALS } from '../../utils/config/constants';
 
 export async function devCommand(
@@ -39,7 +39,7 @@ export async function devCommand(
         // Subscribe to logs and print them to console
         const emitter = getDefaultEmitter();
         emitter.on(EventTypeValues.PROCESS_LOG, (event) => {
-            const { processName, instanceId, message, type } = event.data as any;
+            const { processName, instanceId, message, type } = (event as ProcessLogEvent).data;
             const prefix = `[${processName}${instanceId !== undefined ? `:${instanceId}` : ''}]`;
             if (type === 'stderr') {
                 process.stderr.write(`\x1b[31m${prefix} ${message}\x1b[0m`);

@@ -1,5 +1,6 @@
 import { expect, test, describe, beforeEach } from "bun:test";
 import { ProcessRegistry } from "../../src/core/ProcessRegistry";
+import type { ManagedProcess } from "../../src/core/ManagedProcess";
 
 describe("ProcessRegistry", () => {
     let registry: ProcessRegistry;
@@ -11,7 +12,7 @@ describe("ProcessRegistry", () => {
             namespace,
             clusterGroup
         })
-    });
+    }) as unknown as ManagedProcess;
 
     beforeEach(() => {
         registry = new ProcessRegistry();

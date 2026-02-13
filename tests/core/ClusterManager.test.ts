@@ -10,15 +10,15 @@ describe("ClusterManager", () => {
     });
 
     test("should return undefined for single instance config", () => {
-        const config = { name: "single", script: "echo", instances: 1 };
-        const cluster = manager.getOrCreateCluster(config as any);
+        const config = { name: "single", script: "echo", instances: 1 } as unknown as import('../../src/core/types').ProcessConfig;
+        const cluster = manager.getOrCreateCluster(config);
         expect(cluster).toBeUndefined();
         expect(manager.size).toBe(0);
     });
 
     test("should create cluster for multiple instances", () => {
-        const config = { name: "multi", script: "echo", instances: 2 };
-        const cluster = manager.getOrCreateCluster(config as any);
+        const config = { name: "multi", script: "echo", instances: 2 } as unknown as import('../../src/core/types').ProcessConfig;
+        const cluster = manager.getOrCreateCluster(config);
         
         expect(cluster).toBeDefined();
         expect(cluster?.getName()).toBe("multi");
@@ -26,9 +26,9 @@ describe("ClusterManager", () => {
     });
 
     test("should return existing cluster", () => {
-        const config = { name: "multi", script: "echo", instances: 2 };
-        const cluster1 = manager.getOrCreateCluster(config as any);
-        const cluster2 = manager.getOrCreateCluster(config as any);
+        const config = { name: "multi", script: "echo", instances: 2 } as unknown as import('../../src/core/types').ProcessConfig;
+        const cluster1 = manager.getOrCreateCluster(config);
+        const cluster2 = manager.getOrCreateCluster(config);
         
         expect(cluster1).toBe(cluster2);
         expect(manager.size).toBe(1);
@@ -42,13 +42,13 @@ describe("ClusterManager", () => {
             lbStrategy: LoadBalanceStrategyValues.RANDOM 
         };
         
-        const cluster = manager.getOrCreateCluster(config as any);
+        const cluster = manager.getOrCreateCluster(config as unknown as import('../../src/core/types').ProcessConfig);
         expect(cluster?.getStrategy()).toBe(LoadBalanceStrategyValues.RANDOM);
     });
 
     test("should get cluster by name", () => {
-        const config = { name: "test", script: "echo", instances: 2 };
-        manager.getOrCreateCluster(config as any);
+        const config = { name: "test", script: "echo", instances: 2 } as unknown as import('../../src/core/types').ProcessConfig;
+        manager.getOrCreateCluster(config);
         
         const cluster = manager.getCluster("test");
         expect(cluster).toBeDefined();
@@ -61,8 +61,8 @@ describe("ClusterManager", () => {
     });
 
     test("should remove cluster", () => {
-        const config = { name: "remove-test", script: "echo", instances: 2 };
-        manager.getOrCreateCluster(config as any);
+        const config = { name: "remove-test", script: "echo", instances: 2 } as unknown as import('../../src/core/types').ProcessConfig;
+        manager.getOrCreateCluster(config);
         
         expect(manager.getCluster("remove-test")).toBeDefined();
         
@@ -72,11 +72,11 @@ describe("ClusterManager", () => {
     });
 
     test("should get all clusters", () => {
-        const config1 = { name: "c1", script: "echo", instances: 2 };
-        const config2 = { name: "c2", script: "echo", instances: 2 };
+        const config1 = { name: "c1", script: "echo", instances: 2 } as unknown as import('../../src/core/types').ProcessConfig;
+        const config2 = { name: "c2", script: "echo", instances: 2 } as unknown as import('../../src/core/types').ProcessConfig;
         
-        manager.getOrCreateCluster(config1 as any);
-        manager.getOrCreateCluster(config2 as any);
+        manager.getOrCreateCluster(config1);
+        manager.getOrCreateCluster(config2);
         
         const clusters = manager.getAllClusters();
         expect(clusters.size).toBe(2);

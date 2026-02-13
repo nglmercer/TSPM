@@ -34,15 +34,15 @@ describe("YAML Utils", () => {
   });
 
   test("mergeYamlConfigs should deep merge objects", () => {
-    const base = { a: 1, b: { c: 2 } } as any;
-    const override = { b: { d: 3 }, e: 4 } as any;
+    const base: Record<string, unknown> = { a: 1, b: { c: 2 } };
+    const override: Record<string, unknown> = { b: { d: 3 }, e: 4 };
     const result = mergeYamlConfigs(base, override);
     
     expect(result).toEqual({
       a: 1,
       b: { c: 2, d: 3 },
       e: 4
-    } as any);
+    });
   });
 
   test("writeYamlFile and readYamlFile", async () => {

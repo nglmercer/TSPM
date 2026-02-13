@@ -95,7 +95,8 @@ describe("RandomBalancer", () => {
     balancer.setInstances(instances);
     
     const result = balancer.getInstance();
-    expect([1, 2]).toContain(result?.id as any);
+    expect(result).not.toBeNull();
+    expect([1, 2]).toContain(result!.id);
   });
 
   test("should filter unhealthy instances", () => {

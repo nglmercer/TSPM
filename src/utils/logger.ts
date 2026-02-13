@@ -4,7 +4,7 @@
  * @module utils/logger
  */
 
-import { existsSync, mkdirSync, appendFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, appendFileSync, renameSync, statSync, unlinkSync, writeFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { LOG_CONFIG, ENV_VARS } from "./config/constants";
 
@@ -433,7 +433,7 @@ export class LogManager {
     if (!existsSync(logDir)) return;
     
     try {
-      const files = require('fs').readdirSync(logDir);
+      const files = readdirSync(logDir);
       const logFiles = files
         .filter((f: string) => f.endsWith('.log') || f.match(/\.log\.\d+$/))
         .map((f: string) => ({
@@ -445,7 +445,9 @@ export class LogManager {
 
       // Delete files beyond maxFiles
       for (let i = maxFiles; i < logFiles.length; i++) {
-        unlinkSync(logFiles[i].path);
+        if (logFiles[i]) {
+          unlinkSync(logFiles[i]!.path);
+        }
       }
     } catch (e) {
       log.error(`[TSPM] Log cleanup error: ${e}`);
@@ -479,7 +481,7 @@ export function configureLogger(options: LoggerOptions): Logger {
   if (options.colors !== undefined) logger.setColors(options.colors);
   
   if (options.file && options.fileOutput) {
-    const dir = dirname(options.file);
+    const dir = dirname(options.file!);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
