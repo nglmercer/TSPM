@@ -12,6 +12,64 @@ import {
 } from './constants';
 
 /**
+ * Load balancing strategy type
+ */
+const LoadBalanceStrategySchema = type([
+  'round-robin',
+  'random',
+  'least-connections',
+  'least-cpu',
+  'least-memory',
+  'ip-hash',
+  'weighted',
+]);
+
+/**
+ * Health check protocol type
+ */
+const HealthCheckProtocolSchema = type([
+  'http',
+  'https',
+  'tcp',
+  'command',
+  'none',
+]);
+
+/**
+ * Health check configuration schema
+ */
+const HealthCheckConfigSchema = type({
+  /** Enable health checks */
+  'enabled?': 'boolean',
+  /** Health check protocol */
+  'protocol?': HealthCheckProtocolSchema,
+  /** Health check URL or path */
+  'url?': 'string',
+  /** Health check host */
+  'host?': 'string',
+  /** Health check port */
+  'port?': 'number',
+  /** Health check path (for HTTP) */
+  'path?': 'string',
+  /** HTTP method */
+  'method?': ['GET', 'POST', 'PUT'],
+  /** Health check timeout in ms */
+  'timeout?': 'number>=0',
+  /** Interval between health checks in ms */
+  'interval?': 'number>=0',
+  /** Number of consecutive failures before marking unhealthy */
+  'retries?': 'number>=0',
+  /** Initial delay before starting health checks in ms */
+  'initialDelay?': 'number>=0',
+  /** Command to execute for command-based checks */
+  'command?': 'string',
+  /** Expected status code for HTTP checks */
+  'expectedStatus?': 'number',
+  /** Response body to match */
+  'responseBody?': 'string',
+});
+
+/**
  * ArkType schema for process configuration
  */
 export const ProcessConfigSchema = type({
@@ -55,6 +113,16 @@ export const ProcessConfigSchema = type({
   'user?': 'string',
   /** Process group (Unix only) */
   'group?': 'string',
+  /** Load balancing strategy for clustered instances */
+  'lbStrategy?': LoadBalanceStrategySchema,
+  /** Instance weight for weighted load balancing */
+  'instanceWeight?': 'number>=0',
+  /** Health check configuration */
+  'healthCheck?': HealthCheckConfigSchema,
+  /** Instance ID (auto-assigned) */
+  'instanceId?': 'number>=0',
+  /** Cluster group name */
+  'clusterGroup?': 'string',
 });
 
 /**

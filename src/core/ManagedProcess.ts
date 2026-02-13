@@ -176,4 +176,11 @@ export class ManagedProcess {
   getInstanceId(): number {
     return this.instanceId;
   }
+
+  /**
+   * Get last collected stats
+   */
+  getLastStats(): import('../utils/stats').ProcessStats | null {
+    return this.lastStats;
+  }
 }

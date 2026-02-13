@@ -59,4 +59,70 @@ export interface ProcessStatus {
   restartCount?: number;
   /** Process uptime in milliseconds */
   uptime?: number;
+  /** Instance ID for clustering */
+  instanceId?: number;
+  /** Cluster group name */
+  clusterGroup?: string;
+  /** Health status */
+  healthy?: boolean;
+}
+
+/**
+ * Instance information for clustering
+ */
+export interface InstanceInfo {
+  /** Instance ID */
+  id: number;
+  /** Process name */
+  name: string;
+  /** Current number of active connections */
+  connections: number;
+  /** CPU usage percentage */
+  cpu: number;
+  /** Memory usage in bytes */
+  memory: number;
+  /** Weight for weighted load balancing */
+  weight: number;
+  /** Whether the instance is healthy */
+  healthy: boolean;
+  /** Current state */
+  state: string;
+  /** PID */
+  pid?: number;
+  /** Start time */
+  startedAt?: number;
+}
+
+/**
+ * Cluster information
+ */
+export interface ClusterInfo {
+  /** Cluster name */
+  name: string;
+  /** Total instances */
+  totalInstances: number;
+  /** Running instances */
+  runningInstances: number;
+  /** Healthy instances */
+  healthyInstances: number;
+  /** Load balancing strategy */
+  strategy: string;
+  /** Instances */
+  instances: InstanceInfo[];
+}
+
+/**
+ * Process group information
+ */
+export interface ProcessGroup {
+  /** Group name */
+  name: string;
+  /** Namespace */
+  namespace: string;
+  /** Number of processes in group */
+  processCount: number;
+  /** Total instances across all processes */
+  totalInstances: number;
+  /** Processes in this group */
+  processNames: string[];
 }

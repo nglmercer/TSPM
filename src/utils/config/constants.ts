@@ -250,3 +250,98 @@ export function calculateRestartDelay(restartCount: number): number {
   const delay = baseDelay * Math.pow(backoffMultiplier, restartCount);
   return Math.min(delay, maxDelay);
 }
+
+// ============================================================================
+// Phase 2: Process Management Enhancements - Constants
+// ============================================================================
+
+/**
+ * Load balancing strategy values
+ */
+export const LOAD_BALANCE_STRATEGY = {
+  ROUND_ROBIN: 'round-robin',
+  RANDOM: 'random',
+  LEAST_CONNECTIONS: 'least-connections',
+  LEAST_CPU: 'least-cpu',
+  LEAST_MEMORY: 'least-memory',
+  IP_HASH: 'ip-hash',
+  WEIGHTED: 'weighted',
+} as const;
+
+/**
+ * Load balancing strategy type
+ */
+export type LoadBalanceStrategy = typeof LOAD_BALANCE_STRATEGY[keyof typeof LOAD_BALANCE_STRATEGY];
+
+/**
+ * Health check protocol values
+ */
+export const HEALTH_CHECK_PROTOCOL = {
+  HTTP: 'http',
+  HTTPS: 'https',
+  TCP: 'tcp',
+  COMMAND: 'command',
+  NONE: 'none',
+} as const;
+
+/**
+ * Health check protocol type
+ */
+export type HealthCheckProtocol = typeof HEALTH_CHECK_PROTOCOL[keyof typeof HEALTH_CHECK_PROTOCOL];
+
+/**
+ * Health check status values
+ */
+export const HEALTH_STATUS = {
+  HEALTHY: 'healthy',
+  UNHEALTHY: 'unhealthy',
+  STARTING: 'starting',
+  STOPPING: 'stopping',
+  UNKNOWN: 'unknown',
+} as const;
+
+/**
+ * Health check status type
+ */
+export type HealthStatus = typeof HEALTH_STATUS[keyof typeof HEALTH_STATUS];
+
+/**
+ * Default health check configuration
+ */
+export const DEFAULT_HEALTH_CHECK = {
+  enabled: false,
+  protocol: HEALTH_CHECK_PROTOCOL.NONE,
+  timeout: 5000,
+  interval: 30000,
+  retries: 3,
+  initialDelay: 5000,
+} as const;
+
+/**
+ * Cluster configuration defaults
+ */
+export const CLUSTER_CONFIG = {
+  /** Default instance count */
+  defaultInstances: 1,
+  /** Maximum instances per process */
+  maxInstances: 32,
+  /** Default load balancing strategy */
+  defaultStrategy: LOAD_BALANCE_STRATEGY.ROUND_ROBIN,
+} as const;
+
+/**
+ * Instance status values
+ */
+export const INSTANCE_STATE = {
+  STARTING: 'starting',
+  RUNNING: 'running',
+  STOPPING: 'stopping',
+  STOPPED: 'stopped',
+  ERRORED: 'errored',
+  UNHEALTHY: 'unhealthy',
+} as const;
+
+/**
+ * Instance state type
+ */
+export type InstanceState = typeof INSTANCE_STATE[keyof typeof INSTANCE_STATE];

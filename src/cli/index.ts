@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { DEFAULT_PROCESS_CONFIG, PROCESS_STATE, EXIT_CODES } from '../utils/config/constants';
 import type { ProcessConfig } from '../core/types';
+import { log } from '../utils/logger';
 
 // CLI State directory
 const TSPM_HOME = process.env.TSPM_HOME || join(process.env.HOME || '.', '.tspm');
@@ -163,7 +164,7 @@ async function startCommand(
           config: procConfig,
           state: status.state || PROCESS_STATE.RUNNING,
         });
-        log.success(`[TSPM] ✓ Started: ${procConfig.name} (pid: ${pid})`);破
+        log.success(`[TSPM] ✓ Started: ${procConfig.name} (pid: ${pid})`);
       }
     }
 
@@ -255,17 +256,17 @@ function listCommand(): void {
   const processes = Object.entries(status);
 
   if (processes.length === 0) {
-    console.log('\n┌─────────────────────────────────────────────────────────────┐');
-    console.log('│                    TSPM Process List                        │');
-    console.log('├─────────────────────────────────────────────────────────────┤');
-    console.log('│  No processes running                                      │');
-    console.log('└─────────────────────────────────────────────────────────────┘\n');
+    log.raw('\n┌─────────────────────────────────────────────────────────────┐');
+    log.raw('│                    TSPM Process List                        │');
+    log.raw('├─────────────────────────────────────────────────────────────┤');
+    log.raw('│  No processes running                                      │');
+    log.raw('└─────────────────────────────────────────────────────────────┘\n');
     return;
   }
 
-  console.log('\n┌─────┬──────────────────────┬─────────────┬────────────┬─────────────┬──────────────┐');
-  console.log('│ id  │ name                 │ mode       │ pid        │ status      │ restarts    │');
-  console.log('├─────┼──────────────────────┼─────────────┼────────────┼─────────────┼──────────────┤');
+  log.raw('\n┌─────┬──────────────────────┬─────────────┬────────────┬─────────────┬──────────────┐');
+  log.raw('│ id  │ name                 │ mode       │ pid        │ status      │ restarts    │');
+  log.raw('├─────┼──────────────────────┼─────────────┼────────────┼─────────────┼──────────────┤');
 
   let index = 0;
   for (const [name, data] of processes) {
@@ -273,14 +274,14 @@ function listCommand(): void {
     const statusStr = data.state?.toUpperCase() || 'UNKNOWN';
     const restartStr = '0';
 
-    console.log(
+    log.raw(
       `│ ${String(index).padStart(3)} │ ${name.substring(0, 20).padEnd(20)} │ fork        │ ${pidStr.padEnd(10)} │ ${statusStr.padEnd(10)} │ ${restartStr.padEnd(11)} │`
     );
     index++;
   }
 
-  console.log('└─────┴──────────────────────┴─────────────┴────────────┴─────────────┴──────────────┘');
-  console.log(`\n Total processes: ${processes.length}\n`);
+  log.raw('└─────┴──────────────────────┴─────────────┴────────────┴─────────────┴──────────────┘');
+  log.raw(`\n Total processes: ${processes.length}\n`);
 }
 
 /**
@@ -297,18 +298,18 @@ function logsCommand(options: { name?: string; lines?: number; raw?: boolean }):
     const logPath = join(logDir, `${name}.log`);
     if (existsSync(logPath)) {
       if (!options.raw) {
-        console.log(`\n=== ${name} (last ${numLines} lines) ===`);
+        log.raw(`\n=== ${name} (last ${numLines} lines) ===`);
       }
       try {
         const content = readFileSync(logPath, 'utf-8');
         const lines = content.split('\n');
         const showLines = lines.slice(-numLines);
-        console.log(showLines.join('\n'));
+        log.raw(showLines.join('\n'));
       } catch (e) {
-        console.error(`[TSPM] Failed to read logs for ${name}: ${e}`);
+        log.error(`[TSPM] Failed to read logs for ${name}: ${e}`);
       }
     } else {
-      console.log(`[TSPM] No log file found for: ${name}`);
+      log.info(`[TSPM] No log file found for: ${name}`);
     }
   }
 }
@@ -320,7 +321,7 @@ function describeCommand(name: string): void {
   const status = readProcessStatus();
 
   if (!name || !status[name]) {
-    console.error(`[TSPM] Process not found: ${name}`);
+    log.error(`[TSPM] Process not found: ${name}`);
     process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
   }
 
@@ -328,7 +329,7 @@ function describeCommand(name: string): void {
   const uptime = proc.startedAt ? Math.floor((Date.now() - proc.startedAt) / 1000) : 0;
   const uptimeStr = uptime > 0 ? `${uptime}s` : '-';
 
-  console.log(`
+  log.raw(`
 ┌─────────────────────────┬──────────────────────┐
 │ field                  │ value                │
 ├─────────────────────────┼──────────────────────┤
@@ -351,21 +352,21 @@ function deleteCommand(options: { all?: boolean; name?: string }): void {
 
   if (options.all) {
     // Delete all
-    console.log('[TSPM] Deleting all processes...');
+    log.info('[TSPM] Deleting all processes...');
     for (const name of Object.keys(status)) {
       removeProcessStatus(name);
-      console.log(`[TSPM] ✓ Deleted: ${name}`);
+      log.success(`[TSPM] ✓ Deleted: ${name}`);
     }
   } else if (options.name) {
     if (status[options.name]) {
       removeProcessStatus(options.name);
-      console.log(`[TSPM] ✓ Deleted: ${options.name}`);
+      log.success(`[TSPM] ✓ Deleted: ${options.name}`);
     } else {
-      console.error(`[TSPM] Process not found: ${options.name}`);
+      log.error(`[TSPM] Process not found: ${options.name}`);
       process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
     }
   } else {
-    console.error('[TSPM] Please specify a process name or use --all');
+    log.error('[TSPM] Please specify a process name or use --all');
     process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
   }
 }
@@ -391,14 +392,14 @@ async function monitCommand(): Promise<void> {
   const processes = Object.entries(status);
 
   console.clear();
-  console.log('┌─────────────────────────────────────────────────────────────┐');
-  console.log('│                    TSPM Process Monitor                    │');
-  console.log('├─────────────────────────────────────────────────────────────┤');
-  console.log('│  name                 │ status    │ cpu    │ memory         │');
-  console.log('├───────────────────────┼───────────┼────────┼────────────────┤');
+  log.raw('┌─────────────────────────────────────────────────────────────┐');
+  log.raw('│                    TSPM Process Monitor                    │');
+  log.raw('├─────────────────────────────────────────────────────────────┤');
+  log.raw('│  name                 │ status    │ cpu    │ memory         │');
+  log.raw('├───────────────────────┼───────────┼────────┼────────────────┤');
 
   if (processes.length === 0) {
-    console.log('│  No processes running                                      │');
+    log.raw('│  No processes running                                      │');
   } else {
     for (const [name, data] of processes) {
       let cpuStr = '-';
@@ -416,14 +417,14 @@ async function monitCommand(): Promise<void> {
       }
 
       const statusStr = currentState.toUpperCase().padEnd(9);
-      console.log(
+      log.raw(
         `│ ${name.substring(0, 21).padEnd(21)} │ ${statusStr} │ ${cpuStr.padEnd(6)} │ ${memStr.padEnd(14)} │`
       );
     }
   }
 
-  console.log('└─────────────────────────────────────────────────────────────┘');
-  console.log(`\nMonitoring ${processes.length} process(es). Press Ctrl+C to exit.`);
+  log.raw('└─────────────────────────────────────────────────────────────┘');
+  log.raw(`\nMonitoring ${processes.length} process(es). Press Ctrl+C to exit.`);
 }
 
 /**
@@ -468,7 +469,7 @@ function createProgram(): Command {
     .option('-a, --all', 'Stop all running processes')
     .action((options) => {
       if (!options.name && !options.all) {
-        console.error('[TSPM] Please specify a process name with --name or use --all');
+        log.error('[TSPM] Please specify a process name with --name or use --all');
         process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
       }
       stopCommand(options);
@@ -500,7 +501,7 @@ function createProgram(): Command {
     .option('-a, --all', 'Delete all processes')
     .action((options) => {
       if (!options.name && !options.all) {
-        console.error('[TSPM] Please specify a process name with --name or use --all');
+        log.error('[TSPM] Please specify a process name with --name or use --all');
         process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
       }
       deleteCommand(options);
@@ -547,7 +548,7 @@ function createProgram(): Command {
     .command('flush')
     .description('Flush all logs')
     .action(() => {
-      console.log('[TSPM] Log flushing not yet implemented');
+      log.info('[TSPM] Log flushing not yet implemented');
     });
 
   // Reset command (reset all metrics)
@@ -558,6 +559,165 @@ function createProgram(): Command {
     .option('-a, --all', 'Reset metrics for all processes')
     .action((options) => {
       console.log('[TSPM] Metrics reset not yet implemented');
+    });
+
+  // Cluster command - Show cluster information
+  program
+    .command('cluster')
+    .description('Show cluster information for a process')
+    .argument('[name]', 'Process name')
+    .action((name) => {
+      const status = readProcessStatus();
+      
+      if (!name) {
+        // Show all clusters
+        console.log('\n┌─────────────────────────────────────────────────────────────┐');
+        console.log('│                    TSPM Clusters                          │');
+        console.log('├─────────────────────────────────────────────────────────────┤');
+        
+        const clusterNames = new Set<string>();
+        for (const [procName, data] of Object.entries(status)) {
+          // Extract base name from instance name
+          const baseName = procName.replace(/-(\d+)$/, '');
+          if (baseName !== procName) {
+            clusterNames.add(baseName);
+          }
+        }
+        
+        if (clusterNames.size === 0) {
+          console.log('│  No clusters running                                      │');
+        } else {
+          let index = 0;
+          for (const clusterName of clusterNames) {
+            const instances = Object.keys(status).filter(k => k.startsWith(clusterName));
+            console.log(
+              `│ ${String(index).padStart(3)} │ ${clusterName.substring(0, 20).padEnd(20)} │ ${String(instances.length).padEnd(6)} │ ${'round-robin'.padEnd(12)} │`
+            );
+            index++;
+          }
+        }
+        
+        console.log('└─────────────────────────────────────────────────────────────┘\n');
+      } else {
+        // Show specific cluster
+        const instances = Object.keys(status).filter(k => k.startsWith(name));
+        
+        if (instances.length === 0) {
+          console.error(`[TSPM] No cluster found for: ${name}`);
+          process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
+        }
+        
+        console.log(`\n=== Cluster: ${name} ===`);
+        console.log(`Instances: ${instances.length}`);
+        console.log(`Strategy: round-robin`);
+        console.log('\nInstance List:');
+        console.log('┌─────┬──────────────────────┬─────────────┬────────────┬──────────────┐');
+        console.log('│ id  │ name                 │ pid         │ status     │ restarts    │');
+        console.log('├─────┼──────────────────────┼─────────────┼────────────┼──────────────┤');
+        
+        let idx = 0;
+        for (const instName of instances) {
+          const data = status[instName];
+          const pidStr = data.pid?.toString() || '-';
+          const statusStr = (data.state || 'unknown').toUpperCase();
+          console.log(
+            `│ ${String(idx).padStart(3)} │ ${instName.substring(0, 20).padEnd(20)} │ ${pidStr.padEnd(10)} │ ${statusStr.padEnd(10)} │ 0            │`
+          );
+          idx++;
+        }
+        
+        console.log('└─────┴──────────────────────┴─────────────┴────────────┴──────────────┘\n');
+      }
+    });
+
+  // Scale command - Scale cluster instances
+  program
+    .command('scale')
+    .description('Scale cluster instances')
+    .argument('<name>', 'Process name to scale')
+    .argument('<count>', 'Number of instances')
+    .action((name, count) => {
+      const instanceCount = parseInt(count, 10);
+      
+      if (isNaN(instanceCount) || instanceCount < 1) {
+        console.error('[TSPM] Invalid instance count');
+        process.exit(EXIT_CODES.ERROR);
+      }
+      
+      const status = readProcessStatus();
+      
+      // Check if process exists
+      const instances = Object.keys(status).filter(k => k.startsWith(name));
+      if (instances.length === 0) {
+        console.error(`[TSPM] Process not found: ${name}`);
+        process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
+      }
+      
+      console.log(`[TSPM] Scaling ${name} from ${instances.length} to ${instanceCount} instances...`);
+      console.log('[TSPM] Note: Dynamic scaling requires daemon mode. Please restart in daemon mode.');
+    });
+
+  // Groups command - Show process groups
+  program
+    .command('groups')
+    .description('Show process groups and namespaces')
+    .action(() => {
+      const status = readProcessStatus();
+      
+      // Group by namespace
+      const namespaceGroups = new Map<string, string[]>();
+      const clusterGroups = new Map<string, string[]>();
+      
+      for (const [procName, data] of Object.entries(status)) {
+        const namespace = data.config?.namespace || 'default';
+        const clusterGroup = data.config?.clusterGroup;
+        
+        if (!namespaceGroups.has(namespace)) {
+          namespaceGroups.set(namespace, []);
+        }
+        namespaceGroups.get(namespace)!.push(procName);
+        
+        if (clusterGroup) {
+          if (!clusterGroups.has(clusterGroup)) {
+            clusterGroups.set(clusterGroup, []);
+          }
+          clusterGroups.get(clusterGroup)!.push(procName);
+        }
+      }
+      
+      console.log('\n┌─────────────────────────────────────────────────────────────┐');
+      console.log('│                    TSPM Namespaces                         │');
+      console.log('├─────────────────────────────────────────────────────────────┤');
+      
+      if (namespaceGroups.size === 0) {
+        console.log('│  No namespaces                                            │');
+      } else {
+        let index = 0;
+        for (const [namespace, procs] of namespaceGroups.entries()) {
+          console.log(
+            `│ ${String(index).padStart(3)} │ ${namespace.substring(0, 20).padEnd(20)} │ ${String(procs.length).padEnd(10)} │`
+          );
+          index++;
+        }
+      }
+      
+      console.log('└─────────────────────────────────────────────────────────────┘\n');
+      
+      if (clusterGroups.size > 0) {
+        console.log('\n┌─────────────────────────────────────────────────────────────┐');
+        console.log('│                    TSPM Cluster Groups                     │');
+        console.log('├─────────────────────────────────────────────────────────────┤');
+        
+        let index = 0;
+        for (const [group, procs] of clusterGroups.entries()) {
+          console.log(
+            `│ ${String(index).padStart(3)} │ ${group.substring(0, 20).padEnd(20)} │ ${String(procs.length).padEnd(10)} │`
+          );
+          index++;
+        }
+        
+        console.log('└─────────────────────────────────────────────────────────────┘\n');
+      }
     });
 
   return program;
@@ -576,7 +736,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   try {
     await program.parseAsync(argv);
   } catch (error) {
-    console.error(`[TSPM] Error: ${error}`);
+    log.error(`[TSPM] Error: ${error}`);
     process.exit(EXIT_CODES.ERROR);
   }
 }
