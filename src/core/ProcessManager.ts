@@ -5,6 +5,11 @@ import { MonitoringService, createMonitoringService, type MonitoringServiceOptio
 import { EventEmitter, getDefaultEmitter, EventTypeValues, EventPriorityValues, createEvent } from "../utils/events";
 import type { HealthCheckConfig } from "../utils/healthcheck";
 import type { TSPMEvent, EventType, EventListener } from "../utils/events";
+import { 
+  LOAD_BALANCE_STRATEGY, 
+  PROCESS_STATE, 
+  CLUSTER_CONFIG 
+} from "../utils/config/constants";
 
 import { WebhookService, type WebhookConfig } from "../utils/webhooks";
   
@@ -43,7 +48,7 @@ export class ProcessManager {
     
     // Create cluster for this process if instances > 1
     if (instanceCount > 1) {
-      const strategy = (config.lbStrategy || 'round-robin') as LoadBalanceStrategy;
+      const strategy = (config.lbStrategy || CLUSTER_CONFIG.defaultStrategy) as LoadBalanceStrategy;
       const cluster = new ProcessCluster(config.name, strategy);
       this.clusters.set(config.name, cluster);
     }
@@ -222,7 +227,7 @@ export class ProcessManager {
         memory: stats?.memory || 0,
         weight: proc.getConfig().instanceWeight || 1,
         healthy: true,
-        state: status.state || 'stopped',
+        state: status.state || PROCESS_STATE.STOPPED,
         pid: status.pid,
         startedAt: status.uptime ? Date.now() - status.uptime : undefined,
       });
@@ -231,7 +236,7 @@ export class ProcessManager {
     return {
       name: baseName,
       totalInstances: instances.length,
-      runningInstances: instances.filter(i => i.state === 'running').length,
+      runningInstances: instances.filter(i => i.state === PROCESS_STATE.RUNNING).length,
       healthyInstances: instances.filter(i => i.healthy).length,
       strategy: cluster.getStrategy(),
       instances,

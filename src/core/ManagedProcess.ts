@@ -1,13 +1,20 @@
 import { spawn, type Subprocess } from "bun";
 import { watch, type FSWatcher } from "node:fs";
 import type { ProcessConfig, ProcessStatus } from "./types";
-import { ENV_VARS, WATCH_CONFIG, DEFAULT_PROCESS_CONFIG } from "../utils/config/constants";
+import { 
+  ENV_VARS, 
+  WATCH_CONFIG, 
+  DEFAULT_PROCESS_CONFIG, 
+  PROCESS_STATE, 
+  LOG_TYPE, 
+  STOP_REASON, 
+  RESTART_REASON,
+  type RestartReason,
+  type ProcessState
+} from "../utils/config/constants";
 import { getProcessStats, type ProcessStats } from "../utils/stats";
 import { LogManager, log } from "../utils/logger";
 import { EventEmitter, EventTypeValues, EventPriorityValues, createEvent, getDefaultEmitter } from "../utils/events";
-import type { TSPMEvent } from "../utils/events";
-
-export type ProcessState = 'starting' | 'running' | 'stopping' | 'stopped' | 'errored' | 'restarting';
 
 export class ManagedProcess {
   private subprocess?: Subprocess;
@@ -16,7 +23,7 @@ export class ManagedProcess {
   private restartCount = 0;
   private isManuallyStopped = false;
   private lastStats: ProcessStats | null = null;
-  private currentState: ProcessState = 'stopped';
+  private currentState: ProcessState = PROCESS_STATE.STOPPED;
   private eventEmitter: EventEmitter;
   private startedAt?: number;
   private watcher?: FSWatcher;
@@ -51,7 +58,7 @@ export class ManagedProcess {
     }
 
     // Update state
-    this.setState('starting');
+    this.setState(PROCESS_STATE.STARTING);
     
     // 1. Run preStart script if defined
     if (this.config.preStart) {
@@ -148,7 +155,7 @@ export class ManagedProcess {
     this.startMemoryMonitoring();
     
     // Update state to running
-    this.setState('running');
+    this.setState(PROCESS_STATE.RUNNING);
     
     // 4. Run postStart script if defined
     if (this.config.postStart) {
@@ -187,10 +194,10 @@ export class ManagedProcess {
     this.startMemoryMonitoring();
 
     if (stdoutPath && this.subprocess.stdout instanceof ReadableStream) {
-      this.asyncStreamToBuffer(this.subprocess.stdout, stdoutPath, 'stdout');
+      this.asyncStreamToBuffer(this.subprocess.stdout, stdoutPath, LOG_TYPE.STDOUT);
     }
     if (stderrPath && this.subprocess.stderr instanceof ReadableStream) {
-      this.asyncStreamToBuffer(this.subprocess.stderr, stderrPath, 'stderr');
+      this.asyncStreamToBuffer(this.subprocess.stderr, stderrPath, LOG_TYPE.STDERR);
     }
   }
 
@@ -222,7 +229,7 @@ export class ManagedProcess {
 
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
-          this.restart('watch');
+          this.restart(RESTART_REASON.WATCH);
         }, WATCH_CONFIG.debounceMs);
       });
     } catch (e) {
@@ -233,11 +240,11 @@ export class ManagedProcess {
   /**
    * Restart the managed process
    */
-  async restart(reason: 'manual' | 'watch' = 'manual'): Promise<void> {
+  async restart(reason: RestartReason = RESTART_REASON.MANUAL): Promise<void> {
     const name = this.fullProcessName;
     log.info(`[TSPM] Restarting process: ${name} (reason: ${reason})`);
     
-    this.setState('restarting');
+    this.setState(PROCESS_STATE.RESTARTING);
     
     // Emit restart event
     this.eventEmitter.emit(createEvent(
@@ -330,7 +337,7 @@ export class ManagedProcess {
     // Stop memory monitoring
     this.stopMemoryMonitoring();
     
-    this.setState('stopping');
+    this.setState(PROCESS_STATE.STOPPING);
     
     if (this.watcher) {
       this.watcher.close();
@@ -349,13 +356,13 @@ export class ManagedProcess {
           processName: this.config.name,
           instanceId: this.instanceId,
           pid: this.subprocess.pid,
-          reason: 'manual',
+          reason: STOP_REASON.MANUAL,
         },
         EventPriorityValues.NORMAL
       ));
     }
     
-    this.setState('stopped');
+    this.setState(PROCESS_STATE.STOPPED);
   }
   
   /**
@@ -471,7 +478,7 @@ export class ManagedProcess {
   /**
    * Stream process output to a file with rotation
    */
-  private async asyncStreamToBuffer(stream: ReadableStream, path: string, type: 'stdout' | 'stderr'): Promise<void> {
+  private async asyncStreamToBuffer(stream: ReadableStream, path: string, type: import("../utils/config/constants").LogType): Promise<void> {
     const writer = stream.getReader();
     const decoder = new TextDecoder();
     let bytesWritten = 0;
@@ -535,13 +542,13 @@ export class ManagedProcess {
     ));
     
     if (this.isManuallyStopped) {
-      this.setState('stopped');
+      this.setState(PROCESS_STATE.STOPPED);
       return;
     }
 
     if (error) {
       log.error(`[TSPM] Process ${name} error: ${error.message}`);
-      this.setState('errored');
+      this.setState(PROCESS_STATE.ERRORED);
       
       // Emit error event
       this.eventEmitter.emit(createEvent(
@@ -564,7 +571,7 @@ export class ManagedProcess {
       const delay = Math.min(1000 * Math.pow(2, this.restartCount), 30000); // Exponential backoff
       log.info(`[TSPM] Restarting ${name} in ${delay}ms...`);
       
-      this.setState('restarting');
+      this.setState(PROCESS_STATE.RESTARTING);
       
       // Emit restart event
       this.eventEmitter.emit(createEvent(
@@ -575,13 +582,14 @@ export class ManagedProcess {
           instanceId: this.instanceId,
           restartCount: this.restartCount,
           delay,
+          reason: RESTART_REASON.CRASH,
         },
         EventPriorityValues.NORMAL
       ));
       
       setTimeout(() => this.start(), delay);
     } else {
-      this.setState('stopped');
+      this.setState(PROCESS_STATE.STOPPED);
     }
   }
 }

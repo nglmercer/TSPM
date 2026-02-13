@@ -355,3 +355,61 @@ export const INSTANCE_STATE = {
  * Instance state type
  */
 export type InstanceState = typeof INSTANCE_STATE[keyof typeof INSTANCE_STATE];
+
+/**
+ * Process log type constants
+ */
+export const LOG_TYPE = {
+  STDOUT: 'stdout',
+  STDERR: 'stderr',
+} as const;
+
+/**
+ * Process log type
+ */
+export type LogType = typeof LOG_TYPE[keyof typeof LOG_TYPE];
+
+/**
+ * Process stop reason constants
+ */
+export const STOP_REASON = {
+  MANUAL: 'manual',
+  ERROR: 'error',
+  SIGNAL: 'signal',
+  UNKNOWN: 'unknown',
+} as const;
+
+/**
+ * Process stop reason type
+ */
+export type StopReason = typeof STOP_REASON[keyof typeof STOP_REASON];
+
+/**
+ * Process restart reason constants
+ */
+export const RESTART_REASON = {
+  MANUAL: 'manual',
+  WATCH: 'watch',
+  AUTO: 'auto',
+  CRASH: 'crash',
+  OOM: 'oom',
+} as const;
+
+/**
+ * Process restart reason type
+ */
+export type RestartReason = typeof RESTART_REASON[keyof typeof RESTART_REASON];
+
+/**
+ * System stop reason constants
+ */
+export const SYSTEM_STOP_REASON = {
+  MANUAL: 'manual',
+  SIGNAL: 'signal',
+  ERROR: 'error',
+} as const;
+
+/**
+ * System stop reason type
+ */
+export type SystemStopReason = typeof SYSTEM_STOP_REASON[keyof typeof SYSTEM_STOP_REASON];

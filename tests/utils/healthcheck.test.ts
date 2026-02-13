@@ -105,7 +105,7 @@ describe("HealthCheckRunner", () => {
     const result = await runner.runCheck();
     expect(result).toBeDefined();
     // Protocol NONE returns healthy, but non-existent PID returns unhealthy
-    expect([HealthStatusValues.HEALTHY, HealthStatusValues.UNHEALTHY]).toContain(result.status);
+    expect(result.status === HealthStatusValues.HEALTHY || result.status === HealthStatusValues.UNHEALTHY).toBe(true);
   });
 
   test("should track consecutive failures", async () => {

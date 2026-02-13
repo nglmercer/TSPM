@@ -3,6 +3,16 @@
  * Provides event-driven architecture for process state changes and monitoring
  * @module utils/events
  */
+import { 
+  STOP_REASON, 
+  RESTART_REASON, 
+  LOG_TYPE, 
+  SYSTEM_STOP_REASON,
+  type StopReason,
+  type RestartReason,
+  type LogType,
+  type SystemStopReason
+} from './config/constants';
 
 /**
  * Event types for TSPM
@@ -87,7 +97,7 @@ export interface ProcessStopEvent extends BaseEvent {
     processName: string;
     instanceId: number;
     pid?: number;
-    reason: 'manual' | 'error' | 'signal' | 'unknown';
+    reason: StopReason;
   };
 }
 
@@ -101,7 +111,7 @@ export interface ProcessRestartEvent extends BaseEvent {
     instanceId: number;
     restartCount: number;
     delay?: number;
-    reason?: 'manual' | 'watch' | 'auto';
+    reason?: RestartReason;
   };
 }
 
@@ -231,7 +241,7 @@ export interface ProcessLogEvent extends BaseEvent {
     processName: string;
     instanceId: number;
     message: string;
-    type: 'stdout' | 'stderr';
+    type: LogType;
   };
 }
 
@@ -265,7 +275,7 @@ export interface SystemStartEvent extends BaseEvent {
 export interface SystemStopEvent extends BaseEvent {
   type: typeof EventTypeValues.SYSTEM_STOP;
   data: {
-    reason: 'manual' | 'signal' | 'error';
+    reason: SystemStopReason;
     graceful: boolean;
   };
 }
@@ -302,6 +312,7 @@ export type TSPMEvent =
   | ProcessExitEvent 
   | ProcessErrorEvent 
   | ProcessStateChangeEvent
+  | ProcessLogEvent
   | ProcessOOMEvent
   | InstanceAddEvent 
   | InstanceRemoveEvent 
