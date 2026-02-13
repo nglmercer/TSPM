@@ -197,6 +197,27 @@ export class EventEmitter {
   }
 
   /**
+   * Get the number of listeners for a given event type
+   */
+  listenerCount(type: EventType): number {
+    return this.getListenersForType(type).length;
+  }
+
+  /**
+   * Get all registered event names
+   */
+  eventNames(): EventType[] {
+    return Array.from(this.listeners.keys());
+  }
+
+  /**
+   * Clear event history
+   */
+  clearHistory(): void {
+    this.eventHistory = [];
+  }
+
+  /**
    * Get total event count
    */
   getEventCount(): number {
@@ -230,6 +251,36 @@ export function createEvent<T extends TSPMEvent>(
     priority,
     data,
   } as T;
+}
+
+/**
+ * Create a new event emitter
+ */
+export function createEventEmitter(options?: EventEmitterOptions): EventEmitter {
+  return new EventEmitter(options);
+}
+
+/**
+ * Emit a typed process event to an emitter
+ */
+export function emitProcessEvent(
+  emitter: EventEmitter,
+  type: EventType,
+  processName: string,
+  instanceId: number,
+  data: Record<string, unknown> = {},
+  priority: EventPriority = EventPriorityValues.NORMAL
+): void {
+  emitter.emit(createEvent(
+    type,
+    'ManagedProcess',
+    {
+      processName,
+      instanceId,
+      ...data,
+    },
+    priority
+  ));
 }
 
 /**

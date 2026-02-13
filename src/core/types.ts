@@ -22,6 +22,7 @@ export {
   RESTART_CONFIG,
   WATCH_CONFIG,
   LOG_CONFIG,
+  type ProcessState,
 } from '../utils/config/constants';
 
 // Re-export config utilities
@@ -54,7 +55,7 @@ export interface ProcessStatus {
   /** Exit code if process has exited */
   exitCode?: number;
   /** Current state of the process */
-  state?: 'starting' | 'running' | 'stopping' | 'stopped' | 'errored' | 'restarting';
+  state?: ProcessState;
   /** Number of restart attempts */
   restartCount?: number;
   /** Process uptime in milliseconds */

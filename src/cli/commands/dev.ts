@@ -1,7 +1,8 @@
 import { ConfigLoader, ProcessManager } from '../../core';
 import { log } from '../../utils/logger';
 import { startApi } from '../../utils/api';
-import { getDefaultEmitter } from '../../utils/events';
+import { getDefaultEmitter, EventTypeValues } from '../../utils/events';
+import { APP_CONSTANTS, EXIT_CODES, SIGNALS } from '../../utils/config/constants';
 
 export async function devCommand(
     configFile: string,
@@ -10,7 +11,7 @@ export async function devCommand(
     }
 ): Promise<void> {
     const configPath = configFile || 'tspm.yaml';
-    log.info(`[TSPM] Starting development mode with ${configPath}`);
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Starting development mode with ${configPath}`);
 
     try {
         const config = await ConfigLoader.load(configPath);
@@ -37,7 +38,7 @@ export async function devCommand(
 
         // Subscribe to logs and print them to console
         const emitter = getDefaultEmitter();
-        emitter.on('process:log', (event) => {
+        emitter.on(EventTypeValues.PROCESS_LOG, (event) => {
             const { processName, instanceId, message, type } = event.data as any;
             const prefix = `[${processName}${instanceId !== undefined ? `:${instanceId}` : ''}]`;
             if (type === 'stderr') {
@@ -47,19 +48,19 @@ export async function devCommand(
             }
         });
 
-        log.info('[TSPM] Dev mode active. Watching for changes...');
+        log.info(`${APP_CONSTANTS.LOG_PREFIX} Dev mode active. Watching for changes...`);
 
         // Keep alive
         return new Promise(() => {
-            process.on('SIGINT', async () => {
-                log.info('\n[TSPM] Shutting down dev mode...');
+            process.on(SIGNALS.INTERRUPT, async () => {
+                log.info(`\n${APP_CONSTANTS.LOG_PREFIX} Shutting down dev mode...`);
                 manager.stopAll();
-                process.exit(0);
+                process.exit(EXIT_CODES.SUCCESS);
             });
         });
 
     } catch (e: any) {
-        log.error(`[TSPM] Failed to start dev mode: ${e.message}`);
-        process.exit(1);
+        log.error(`${APP_CONSTANTS.LOG_PREFIX} Failed to start dev mode: ${e.message}`);
+        process.exit(EXIT_CODES.ERROR);
     }
 }

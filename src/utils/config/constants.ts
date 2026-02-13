@@ -468,3 +468,33 @@ export const SCRIPT_EXTENSIONS = {
   TYPESCRIPT: '.ts',
   JAVASCRIPT: '.js',
 } as const;
+
+/**
+ * Default timeout values in milliseconds
+ */
+export const TIMEOUTS = {
+  /** Default wait time for process to stop gracefully */
+  GRACEFUL_STOP: 500,
+  /** Default process startup wait time */
+  STARTUP_WAIT: 1000,
+  /** Default restart delay maximum */
+  MAX_RESTART_DELAY: 30000,
+  /** Base restart delay */
+  BASE_RESTART_DELAY: 1000,
+} as const;
+
+/**
+ * Bun-specific environment variables
+ */
+export const BUN_ENV_VARS = {
+  /** Enable source maps in Bun */
+  VERBOSE_SOURCE_MAPS: 'BUN_CONFIG_VERBOSE_SOURCE_MAPS',
+} as const;
+
+/**
+ * Node-specific environment variables
+ */
+export const NODE_ENV_VARS = {
+  /** Node.js options */
+  NODE_OPTIONS: 'NODE_OPTIONS',
+} as const;

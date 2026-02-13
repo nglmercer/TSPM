@@ -12,7 +12,7 @@ export * from './dev';
 import { startCommand } from './start';
 import { stopCommand } from './stop';
 import { readProcessStatus, removeProcessStatus } from '../state/status';
-import { EXIT_CODES } from '../../utils/config/constants';
+import { EXIT_CODES, APP_CONSTANTS, SIGNALS } from '../../utils/config/constants';
 import { log } from '../../utils/logger';
 
 /**
@@ -46,30 +46,30 @@ export function deleteCommand(options: { all?: boolean; name?: string }): void {
   const status = readProcessStatus();
 
   if (options.all) {
-    log.info('[TSPM] Deleting all processes...');
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Deleting all processes...`);
     for (const name of Object.keys(status)) {
       // First stop if running
       const data = status[name];
       if (data && data.pid) {
-        try { process.kill(data.pid, 'SIGKILL'); } catch {}
+        try { process.kill(data.pid, SIGNALS.FORCEFUL_SHUTDOWN); } catch {}
       }
       removeProcessStatus(name);
-      log.success(`[TSPM] ✓ Deleted: ${name}`);
+      log.success(`${APP_CONSTANTS.LOG_PREFIX} ✓ Deleted: ${name}`);
     }
   } else if (options.name) {
     const data = status[options.name];
     if (data) {
       if (data.pid) {
-        try { process.kill(data.pid, 'SIGKILL'); } catch {}
+        try { process.kill(data.pid, SIGNALS.FORCEFUL_SHUTDOWN); } catch {}
       }
       removeProcessStatus(options.name);
-      log.success(`[TSPM] ✓ Deleted: ${options.name}`);
+      log.success(`${APP_CONSTANTS.LOG_PREFIX} ✓ Deleted: ${options.name}`);
     } else {
-      log.error(`[TSPM] Process not found: ${options.name}`);
+      log.error(`${APP_CONSTANTS.LOG_PREFIX} Process not found: ${options.name}`);
       process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
     }
   } else {
-    log.error('[TSPM] Please specify a process name or use --all');
+    log.error(`${APP_CONSTANTS.LOG_PREFIX} Please specify a process name or use --all`);
     process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
   }
 }

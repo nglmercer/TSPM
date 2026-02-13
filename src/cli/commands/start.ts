@@ -1,7 +1,7 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { ConfigLoader, ProcessManager } from '../../core';
-import { EXIT_CODES, PROCESS_STATE } from '../../utils/config/constants';
+import { EXIT_CODES, PROCESS_STATE, APP_CONSTANTS } from '../../utils/config/constants';
 import { log, configureLogger } from '../../utils/logger';
 import { startApi } from '../../utils/api';
 import { TSPM_HOME } from '../state/constants';
@@ -19,7 +19,7 @@ export async function startCommand(
   // Use default config file if not specified
   const configPath = configFile || 'tspm.yaml';
 
-  log.info(`[TSPM] Loading configuration from: ${configPath}`);
+  log.info(`${APP_CONSTANTS.LOG_PREFIX} Loading configuration from: ${configPath}`);
 
   try {
     const config = await ConfigLoader.load(configPath);
@@ -40,11 +40,11 @@ export async function startCommand(
 
     if (processesToStart.length === 0) {
       const nameMsg = options.name ? ` with name '${options.name}'` : '';
-      log.error(`[TSPM] No process found${nameMsg} in config file: ${configPath}`);
+      log.error(`${APP_CONSTANTS.LOG_PREFIX} No process found${nameMsg} in config file: ${configPath}`);
       process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
     }
 
-    log.info(`[TSPM] Starting ${processesToStart.length} process(es)...`);
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Starting ${processesToStart.length} process(es)...`);
 
     for (const procConfig of processesToStart) {
       manager.addProcess(procConfig);
@@ -64,7 +64,7 @@ export async function startCommand(
           config: procConfig,
           state: status.state || PROCESS_STATE.RUNNING,
         });
-        log.success(`[TSPM] ✓ Started: ${procConfig.name} (pid: ${pid})`);
+        log.success(`${APP_CONSTANTS.LOG_PREFIX} ✓ Started: ${procConfig.name} (pid: ${pid})`);
       }
     }
 
@@ -76,7 +76,7 @@ export async function startCommand(
     );
 
     if (options.daemon) {
-      log.info(`[TSPM] Running in daemon mode`);
+      log.info(`${APP_CONSTANTS.LOG_PREFIX} Running in daemon mode`);
       writeDaemonStatus({ pid: process.pid, startedAt: Date.now(), configFile: configPath });
     }
 
@@ -85,9 +85,9 @@ export async function startCommand(
         startApi(manager, config.api || {});
     }
 
-    log.success(`[TSPM] All processes started successfully`);
+    log.success(`${APP_CONSTANTS.LOG_PREFIX} All processes started successfully`);
   } catch (error) {
-    log.error(`[TSPM] Failed to start: ${error}`);
+    log.error(`${APP_CONSTANTS.LOG_PREFIX} Failed to start: ${error}`);
     process.exit(EXIT_CODES.PROCESS_START_FAILED);
   }
 }

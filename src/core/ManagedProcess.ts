@@ -9,6 +9,12 @@ import {
   LOG_TYPE, 
   STOP_REASON, 
   RESTART_REASON,
+  APP_CONSTANTS,
+  MEMORY_CONFIG,
+  SCRIPT_EXTENSIONS,
+  TIMEOUTS,
+  BUN_ENV_VARS,
+  NODE_ENV_VARS,
   type RestartReason,
   type ProcessState
 } from "../utils/config/constants";
@@ -62,7 +68,7 @@ export class ManagedProcess {
     
     // 1. Run preStart script if defined
     if (this.config.preStart) {
-      log.info(`[TSPM] Running preStart script for ${name}: ${this.config.preStart}`);
+      log.info(`${APP_CONSTANTS.LOG_PREFIX} Running preStart script for ${name}: ${this.config.preStart}`);
       try {
         const preStartResult = spawn({
           cmd: ["sh", "-c", this.config.preStart],
@@ -71,14 +77,14 @@ export class ManagedProcess {
         });
         await preStartResult.exited;
         if (preStartResult.exitCode !== 0) {
-          log.warn(`[TSPM] preStart script for ${name} failed with code ${preStartResult.exitCode}`);
+          log.warn(`${APP_CONSTANTS.LOG_PREFIX} preStart script for ${name} failed with code ${preStartResult.exitCode}`);
         }
       } catch (e) {
-        log.error(`[TSPM] Error running preStart for ${name}: ${e}`);
+        log.error(`${APP_CONSTANTS.LOG_PREFIX} Error running preStart for ${name}: ${e}`);
       }
     }
 
-    log.info(`[TSPM] Starting process: ${name} (instance: ${this.instanceId})`);
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Starting process: ${name} (instance: ${this.instanceId})`);
     
     const stdoutPath = this.config.stdout;
     const stderrPath = this.config.stderr;
@@ -105,10 +111,10 @@ export class ManagedProcess {
           const content = await envFile.text();
           dotEnvVars = this.parseDotEnv(content);
         } else {
-          log.warn(`[TSPM] dotEnv file not found: ${this.config.dotEnv}`);
+          log.warn(`${APP_CONSTANTS.LOG_PREFIX} dotEnv file not found: ${this.config.dotEnv}`);
         }
       } catch (e) {
-        log.error(`[TSPM] Error loading dotEnv for ${name}: ${e}`);
+        log.error(`${APP_CONSTANTS.LOG_PREFIX} Error loading dotEnv for ${name}: ${e}`);
       }
     }
 
@@ -125,15 +131,15 @@ export class ManagedProcess {
     let interpreter = this.config.script;
 
     // Use bun as default interpreter for JS/TS scripts if not explicitly provided
-    if (this.config.script.endsWith('.ts') || this.config.script.endsWith('.js')) {
-      interpreter = "bun";
+    if (this.config.script.endsWith(SCRIPT_EXTENSIONS.TYPESCRIPT) || this.config.script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
+      interpreter = APP_CONSTANTS.DEFAULT_INTERPRETER;
       cmd.unshift(this.config.script);
       
       // For Bun source maps
-      env.BUN_CONFIG_VERBOSE_SOURCE_MAPS = "true";
+      env[BUN_ENV_VARS.VERBOSE_SOURCE_MAPS] = "true";
       
-      if (this.config.script.endsWith('.js')) {
-        env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
+      if (this.config.script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
+        env[NODE_ENV_VARS.NODE_OPTIONS] = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
       }
     }
 
@@ -169,10 +175,10 @@ export class ManagedProcess {
           });
           await postStartResult.exited;
           if (postStartResult.exitCode !== 0) {
-            log.warn(`[TSPM] postStart script for ${name} failed with code ${postStartResult.exitCode}`);
+            log.warn(`${APP_CONSTANTS.LOG_PREFIX} postStart script for ${name} failed with code ${postStartResult.exitCode}`);
           }
         } catch (e) {
-          log.error(`[TSPM] Error running postStart for ${name}: ${e}`);
+          log.error(`${APP_CONSTANTS.LOG_PREFIX} Error running postStart for ${name}: ${e}`);
         }
       })();
     }
@@ -206,7 +212,7 @@ export class ManagedProcess {
    */
   private setupWatcher(): void {
     const watchPath = this.config.cwd || process.cwd();
-    log.info(`[TSPM] Setup watcher for ${this.fullProcessName} on ${watchPath}`);
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Setup watcher for ${this.fullProcessName} on ${watchPath}`);
     
     let debounceTimer: Timer | null = null;
     
@@ -225,7 +231,7 @@ export class ManagedProcess {
 
         if (isIgnored) return;
 
-        log.debug(`[TSPM] Watcher: File changed: ${filename}`);
+        log.debug(`${APP_CONSTANTS.LOG_PREFIX} Watcher: File changed: ${filename}`);
 
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
@@ -233,7 +239,7 @@ export class ManagedProcess {
         }, WATCH_CONFIG.debounceMs);
       });
     } catch (e) {
-      log.error(`[TSPM] Failed to setup watcher: ${e}`);
+      log.error(`${APP_CONSTANTS.LOG_PREFIX} Failed to setup watcher: ${e}`);
     }
   }
 
@@ -242,7 +248,7 @@ export class ManagedProcess {
    */
   async restart(reason: RestartReason = RESTART_REASON.MANUAL): Promise<void> {
     const name = this.fullProcessName;
-    log.info(`[TSPM] Restarting process: ${name} (reason: ${reason})`);
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Restarting process: ${name} (reason: ${reason})`);
     
     this.setState(PROCESS_STATE.RESTARTING);
     
@@ -263,7 +269,7 @@ export class ManagedProcess {
     if (this.subprocess) {
       this.subprocess.kill();
       // Wait a bit for it to stop
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, TIMEOUTS.GRACEFUL_STOP));
     }
     
     await this.start();
@@ -283,8 +289,6 @@ export class ManagedProcess {
       clearInterval(this.memoryMonitorInterval);
     }
     
-    const checkInterval = 5000; // Check every 5 seconds
-    
     this.memoryMonitorInterval = setInterval(async () => {
       if (!this.subprocess || !this.subprocess.pid || this.isManuallyStopped) {
         this.stopMemoryMonitoring();
@@ -296,7 +300,7 @@ export class ManagedProcess {
       
       // Check if memory exceeds limit
       if (stats.memory > maxMemory) {
-        log.warn(`[TSPM] Process ${this.fullProcessName} exceeded memory limit: ${stats.memory} bytes > ${maxMemory} bytes`);
+        log.warn(`${APP_CONSTANTS.LOG_PREFIX} Process ${this.fullProcessName} exceeded memory limit: ${stats.memory} bytes > ${maxMemory} bytes`);
         
         // Emit OOM event
         this.eventEmitter.emit(createEvent(
@@ -314,7 +318,7 @@ export class ManagedProcess {
         // Kill the process - this will trigger handleExit
         this.subprocess.kill();
       }
-    }, checkInterval);
+    }, MEMORY_CONFIG.checkInterval);
   }
 
   /**
@@ -346,7 +350,7 @@ export class ManagedProcess {
 
     if (this.subprocess) {
       this.subprocess.kill();
-      log.info(`[TSPM] Stopped process: ${name}`);
+      log.info(`${APP_CONSTANTS.LOG_PREFIX} Stopped process: ${name}`);
       
       // Emit stop event
       this.eventEmitter.emit(createEvent(
@@ -482,7 +486,6 @@ export class ManagedProcess {
     const writer = stream.getReader();
     const decoder = new TextDecoder();
     let bytesWritten = 0;
-    const rotateThreshold = 64 * 1024; // Check rotation every 64KB written
 
     try {
       while (true) {
@@ -508,13 +511,13 @@ export class ManagedProcess {
         await Bun.write(path, value, { append: true });
         
         bytesWritten += value.length;
-        if (bytesWritten >= rotateThreshold) {
+        if (bytesWritten >= MEMORY_CONFIG.rotateThreshold) {
             LogManager.rotate(path);
             bytesWritten = 0;
         }
       }
     } catch (e) {
-      log.error(`[TSPM] Error writing to ${path}: ${e}`);
+      log.error(`${APP_CONSTANTS.LOG_PREFIX} Error writing to ${path}: ${e}`);
     }
   }
 
@@ -547,7 +550,7 @@ export class ManagedProcess {
     }
 
     if (error) {
-      log.error(`[TSPM] Process ${name} error: ${error.message}`);
+      log.error(`${APP_CONSTANTS.LOG_PREFIX} Process ${name} error: ${error.message}`);
       this.setState(PROCESS_STATE.ERRORED);
       
       // Emit error event
@@ -564,12 +567,12 @@ export class ManagedProcess {
       ));
     }
 
-    log.info(`[TSPM] Process ${name} exited with code ${exitCode}`);
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Process ${name} exited with code ${exitCode}`);
     
     if (this.config.autorestart !== false) {
       this.restartCount++;
-      const delay = Math.min(1000 * Math.pow(2, this.restartCount), 30000); // Exponential backoff
-      log.info(`[TSPM] Restarting ${name} in ${delay}ms...`);
+      const delay = Math.min(TIMEOUTS.BASE_RESTART_DELAY * Math.pow(2, this.restartCount), TIMEOUTS.MAX_RESTART_DELAY); // Exponential backoff
+      log.info(`${APP_CONSTANTS.LOG_PREFIX} Restarting ${name} in ${delay}ms...`);
       
       this.setState(PROCESS_STATE.RESTARTING);
       
