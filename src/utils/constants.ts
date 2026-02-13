@@ -335,7 +335,7 @@ export const FILE_EXTENSIONS = {
 /**
  * Create a interpolator function for consistent message formatting
  */
-export function createMessageFormatter<T extends string>(template: T): (args: Record<string, string | number>) => string {
+export function createMessageFormatter(template: string): (args: Record<string, string | number>) => string {
   return (args: Record<string, string | number>): string => {
     let result = template;
     for (const [key, value] of Object.entries(args)) {

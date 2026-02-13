@@ -203,6 +203,25 @@ export const ENV_VARS = {
 export type EnvVar = typeof ENV_VARS[keyof typeof ENV_VARS];
 
 /**
+ * Default namespace name
+ */
+export const DEFAULT_NAMESPACE = 'default';
+
+/**
+ * HTTP method constants
+ */
+export const HTTP_METHODS = {
+  GET: 'GET',
+  POST: 'POST',
+  PUT: 'PUT',
+} as const;
+
+/**
+ * HTTP method type
+ */
+export type HttpMethod = typeof HTTP_METHODS[keyof typeof HTTP_METHODS];
+
+/**
  * File extensions for configuration files
  */
 export const CONFIG_FILE_EXTENSIONS: Record<ConfigFormat, readonly string[]> = {
@@ -413,3 +432,39 @@ export const SYSTEM_STOP_REASON = {
  * System stop reason type
  */
 export type SystemStopReason = typeof SYSTEM_STOP_REASON[keyof typeof SYSTEM_STOP_REASON];
+
+// ============================================================================
+// General Application Constants
+// ============================================================================
+
+/**
+ * Application branding and logging constants
+ */
+export const APP_CONSTANTS = {
+  /** Application name used in logs and messages */
+  NAME: 'TSPM',
+  /** Log prefix for all TSPM messages */
+  LOG_PREFIX: '[TSPM]',
+  /** Default namespace for processes */
+  DEFAULT_NAMESPACE: 'default',
+  /** Default interpreter for JS/TS files */
+  DEFAULT_INTERPRETER: 'bun',
+} as const;
+
+/**
+ * Memory monitoring constants
+ */
+export const MEMORY_CONFIG = {
+  /** Memory check interval in milliseconds */
+  checkInterval: 5000,
+  /** Log rotation threshold in bytes (64KB) */
+  rotateThreshold: 64 * 1024,
+} as const;
+
+/**
+ * Process script extensions
+ */
+export const SCRIPT_EXTENSIONS = {
+  TYPESCRIPT: '.ts',
+  JAVASCRIPT: '.js',
+} as const;

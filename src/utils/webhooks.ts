@@ -6,6 +6,7 @@
 
 import { log } from "./logger";
 import { type TSPMEvent } from "./events";
+import { HTTP_METHODS, HTTP_CONTENT_TYPE, HTTP_HEADERS, LOG_MESSAGES } from "./constants";
 
 export interface WebhookConfig {
   /** Webhook URL */
@@ -48,10 +49,10 @@ export class WebhookService {
 
     try {
       const response = await fetch(config.url, {
-        method: 'POST',
+        method: HTTP_METHODS.POST,
         headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'TSPM-Webhook/1.0',
+          [HTTP_CONTENT_TYPE.JSON]: HTTP_CONTENT_TYPE.JSON,
+          [HTTP_HEADERS.USER_AGENT]: HTTP_HEADERS.USER_AGENT,
           ...config.headers,
         },
         body: JSON.stringify({
@@ -62,10 +63,10 @@ export class WebhookService {
       });
 
       if (!response.ok) {
-        log.error(`[TSPM Webhook] Failed to send to ${config.url}: ${response.status} ${response.statusText}`);
+        log.error(LOG_MESSAGES.WEBHOOK_FAILED(config.url, response.status, response.statusText));
       }
     } catch (e) {
-      log.error(`[TSPM Webhook] Error sending to ${config.url}: ${e}`);
+      log.error(LOG_MESSAGES.WEBHOOK_ERROR(config.url, String(e)));
     }
   }
 }

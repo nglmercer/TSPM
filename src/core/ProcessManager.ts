@@ -12,12 +12,12 @@ import {
 } from "../utils/config/constants";
 
 import { WebhookService, type WebhookConfig } from "../utils/webhooks";
+import { ProcessRegistry } from "./ProcessRegistry";
+import { ClusterManager } from "./ClusterManager";
   
 export class ProcessManager {
-  private processes: Map<string, ManagedProcess> = new Map();
-  private clusters: Map<string, ProcessCluster> = new Map();
-  private namespaces: Map<string, Set<string>> = new Map();
-  private clusterGroups: Map<string, Set<string>> = new Map();
+  private registry: ProcessRegistry = new ProcessRegistry();
+  private clusterManager: ClusterManager = new ClusterManager();
   private monitoringService?: MonitoringService;
   private eventEmitter: EventEmitter;
   private webhookService?: WebhookService;
@@ -46,40 +46,19 @@ export class ProcessManager {
   addProcess(config: ProcessConfig): void {
     const instanceCount = config.instances || 1;
     
-    // Create cluster for this process if instances > 1
-    if (instanceCount > 1) {
-      const strategy = (config.lbStrategy || CLUSTER_CONFIG.defaultStrategy) as LoadBalanceStrategy;
-      const cluster = new ProcessCluster(config.name, strategy);
-      this.clusters.set(config.name, cluster);
-    }
+    // Create/get cluster
+    const cluster = this.clusterManager.getOrCreateCluster(config);
     
     for (let i = 0; i < instanceCount; i++) {
         const process = new ManagedProcess(config, i, this.eventEmitter);
         const name = i > 0 ? `${config.name}-${i}` : config.name;
-        this.processes.set(name, process);
+        this.registry.add(name, process);
         
         // Add to cluster if exists
-        const cluster = this.clusters.get(config.name);
         if (cluster) {
           cluster.addInstance(i, {
             weight: config.instanceWeight || 1,
           });
-        }
-        
-        // Track namespace
-        if (config.namespace) {
-          if (!this.namespaces.has(config.namespace)) {
-            this.namespaces.set(config.namespace, new Set());
-          }
-          this.namespaces.get(config.namespace)!.add(name);
-        }
-        
-        // Track cluster group
-        if (config.clusterGroup) {
-          if (!this.clusterGroups.has(config.clusterGroup)) {
-            this.clusterGroups.set(config.clusterGroup, new Set());
-          }
-          this.clusterGroups.get(config.clusterGroup)!.add(name);
         }
     }
   }
@@ -90,7 +69,7 @@ export class ProcessManager {
    * @returns ManagedProcess or undefined if not found
    */
   getProcess(name: string): ManagedProcess | undefined {
-    return this.processes.get(name);
+    return this.registry.get(name);
   }
 
   /**
@@ -99,15 +78,8 @@ export class ProcessManager {
    * @returns Array of managed processes
    */
   getProcessesByBaseName(baseName: string): ManagedProcess[] {
-    return Array.from(this.processes.values()).filter(
-      p => {
-        const config = p.getConfig();
-        const instanceId = p.getInstanceId();
-        if (instanceId === 0) {
-          return config.name === baseName;
-        }
-        return config.name === baseName;
-      }
+    return this.registry.getAll().filter(
+      p => p.getConfig().name === baseName
     );
   }
 
@@ -119,7 +91,7 @@ export class ProcessManager {
    */
   getProcessByInstance(baseName: string, instanceId: number): ManagedProcess | undefined {
     const name = instanceId > 0 ? `${baseName}-${instanceId}` : baseName;
-    return this.processes.get(name);
+    return this.registry.get(name);
   }
 
   /**
@@ -127,36 +99,36 @@ export class ProcessManager {
    * @param name Process name or base name (to remove all instances)
    */
   removeProcess(name: string): void {
-    const process = this.processes.get(name);
+    const process = this.registry.get(name);
     if (process) {
       const config = process.getConfig();
       process.stop();
-      this.processes.delete(name);
+      this.registry.delete(name);
       
       // Remove from cluster
-      const cluster = this.clusters.get(config.name);
+      const cluster = this.clusterManager.getCluster(config.name);
       if (cluster) {
         const instanceId = process.getInstanceId();
         cluster.removeInstance(instanceId);
         if (cluster.getInstances().length === 0) {
-          this.clusters.delete(config.name);
+          this.clusterManager.removeCluster(config.name);
         }
       }
     } else {
       // Check if it's a base name for multiple instances
-      for (const [procName, proc] of this.processes.entries()) {
-        if (procName === name || procName.startsWith(`${name}-`)) {
-          const config = proc.getConfig();
+      for (const proc of this.registry.getAll()) {
+        const config = proc.getConfig();
+        if (config.name === name) {
+          const procName = proc.getInstanceId() > 0 ? `${config.name}-${proc.getInstanceId()}` : config.name;
           proc.stop();
-          this.processes.delete(procName);
+          this.registry.delete(procName);
           
           // Remove from cluster
-          const cluster = this.clusters.get(config.name);
+          const cluster = this.clusterManager.getCluster(config.name);
           if (cluster) {
-            const instanceId = proc.getInstanceId();
-            cluster.removeInstance(instanceId);
+            cluster.removeInstance(proc.getInstanceId());
             if (cluster.getInstances().length === 0) {
-              this.clusters.delete(config.name);
+              this.clusterManager.removeCluster(config.name);
             }
           }
         }
@@ -169,10 +141,7 @@ export class ProcessManager {
    * @param namespace Namespace to filter by
    */
   getProcessesByNamespace(namespace: string): ManagedProcess[] {
-    const namesInNamespace = this.namespaces.get(namespace);
-    if (!namesInNamespace) return [];
-    
-    return Array.from(namesInNamespace).map(name => this.processes.get(name)).filter(Boolean) as ManagedProcess[];
+    return this.registry.getByNamespace(namespace);
   }
 
   /**
@@ -182,16 +151,11 @@ export class ProcessManager {
   removeByNamespace(namespace: string): void {
     const procs = this.getProcessesByNamespace(namespace);
     for (const proc of procs) {
-        // Find the key in the map to delete it
-        for (const [key, p] of this.processes.entries()) {
-            if (p === proc) {
-                proc.stop();
-                this.processes.delete(key);
-                break;
-            }
-        }
+      const config = proc.getConfig();
+      const name = proc.getInstanceId() > 0 ? `${config.name}-${proc.getInstanceId()}` : config.name;
+      proc.stop();
+      this.registry.delete(name);
     }
-    this.namespaces.delete(namespace);
   }
 
   /**
@@ -199,10 +163,7 @@ export class ProcessManager {
    * @param group Cluster group name
    */
   getProcessesByClusterGroup(group: string): ManagedProcess[] {
-    const namesInGroup = this.clusterGroups.get(group);
-    if (!namesInGroup) return [];
-    
-    return Array.from(namesInGroup).map(name => this.processes.get(name)).filter(Boolean) as ManagedProcess[];
+    return this.registry.getByClusterGroup(group);
   }
 
   /**
@@ -210,7 +171,7 @@ export class ProcessManager {
    * @param baseName Base process name
    */
   getClusterInfo(baseName: string): ClusterInfo | null {
-    const cluster = this.clusters.get(baseName);
+    const cluster = this.clusterManager.getCluster(baseName);
     if (!cluster) return null;
     
     const instances: InstanceInfo[] = [];
@@ -247,68 +208,35 @@ export class ProcessManager {
    * Get all clusters
    */
   getClusters(): Map<string, ProcessCluster> {
-    return this.clusters;
+    return this.clusterManager.getAllClusters();
   }
 
   /**
    * Get cluster by name
    */
   getCluster(name: string): ProcessCluster | undefined {
-    return this.clusters.get(name);
+    return this.clusterManager.getCluster(name);
   }
 
   /**
    * Get all namespaces
    */
   getNamespaces(): string[] {
-    return Array.from(this.namespaces.keys());
+    return this.registry.getNamespaces();
   }
 
   /**
    * Get all cluster groups
    */
   getClusterGroups(): string[] {
-    return Array.from(this.clusterGroups.keys());
+    return this.registry.getClusterGroups();
   }
 
   /**
    * Get process groups
    */
   getProcessGroups(): ProcessGroup[] {
-    const groups: ProcessGroup[] = [];
-    
-    // Group by namespace
-    for (const [namespace, processNames] of this.namespaces.entries()) {
-      const processNamesArray = Array.from(processNames);
-      const processes = processNamesArray.map(name => this.processes.get(name)).filter(Boolean) as ManagedProcess[];
-      
-      groups.push({
-        name: namespace,
-        namespace,
-        processCount: new Set(processes.map(p => p.getConfig().name)).size,
-        totalInstances: processes.length,
-        processNames: processNamesArray,
-      });
-    }
-    
-    // Group by cluster group
-    for (const [groupName, processNames] of this.clusterGroups.entries()) {
-      const existingGroup = groups.find(g => g.name === groupName);
-      if (!existingGroup) {
-        const processNamesArray = Array.from(processNames);
-        const processes = processNamesArray.map(name => this.processes.get(name)).filter(Boolean) as ManagedProcess[];
-        
-        groups.push({
-          name: groupName,
-          namespace: 'default',
-          processCount: new Set(processes.map(p => p.getConfig().name)).size,
-          totalInstances: processes.length,
-          processNames: processNamesArray,
-        });
-      }
-    }
-    
-    return groups;
+    return this.registry.getProcessGroups();
   }
 
   /**
@@ -316,7 +244,7 @@ export class ProcessManager {
    * @param baseName Base process name
    */
   getNextInstance(baseName: string): InstanceInfo | null {
-    const cluster = this.clusters.get(baseName);
+    const cluster = this.clusterManager.getCluster(baseName);
     return cluster ? cluster.getNextInstance() : null;
   }
 
@@ -324,7 +252,7 @@ export class ProcessManager {
    * Start all managed processes
    */
   async startAll(): Promise<void> {
-    for (const process of this.processes.values()) {
+    for (const process of this.registry.values()) {
       await process.start();
     }
   }
@@ -333,7 +261,7 @@ export class ProcessManager {
    * Stop all managed processes
    */
   stopAll(): void {
-    for (const process of this.processes.values()) {
+    for (const process of this.registry.values()) {
       process.stop();
     }
   }
@@ -344,7 +272,7 @@ export class ProcessManager {
   async startProcess(name: string): Promise<void> {
     const processes = this.getProcessesByBaseName(name);
     if (processes.length === 0) {
-      const p = this.processes.get(name);
+      const p = this.registry.get(name);
       if (p) processes.push(p);
     }
     
@@ -359,7 +287,7 @@ export class ProcessManager {
   stopProcess(name: string): void {
     const processes = this.getProcessesByBaseName(name);
     if (processes.length === 0) {
-      const p = this.processes.get(name);
+      const p = this.registry.get(name);
       if (p) processes.push(p);
     }
     
@@ -374,7 +302,7 @@ export class ProcessManager {
   async restartProcess(name: string): Promise<void> {
     const processes = this.getProcessesByBaseName(name);
     if (processes.length === 0) {
-      const p = this.processes.get(name);
+      const p = this.registry.get(name);
       if (p) processes.push(p);
     }
     
@@ -389,12 +317,12 @@ export class ProcessManager {
    */
   getStatuses(): (ProcessStatus & { namespace?: string; clusterGroup?: string })[] {
     const statuses: (ProcessStatus & { namespace?: string; clusterGroup?: string })[] = [];
-    for (const [name, process] of this.processes.entries()) {
-      const status = process.getStatus();
+    for (const proc of this.registry.values()) {
+      const status = proc.getStatus();
       statuses.push({
         ...status,
-        namespace: process.getConfig().namespace,
-        clusterGroup: process.getConfig().clusterGroup,
+        namespace: proc.getConfig().namespace,
+        clusterGroup: proc.getConfig().clusterGroup,
       });
     }
     return statuses;
@@ -404,14 +332,14 @@ export class ProcessManager {
    * Get the number of managed processes
    */
   get processCount(): number {
-    return this.processes.size;
+    return this.registry.size;
   }
 
   /**
    * Get the number of clusters
    */
   get clusterCount(): number {
-    return this.clusters.size;
+    return this.clusterManager.size;
   }
 
   /**
@@ -419,10 +347,10 @@ export class ProcessManager {
    * @param name Process name or base name
    */
   hasProcess(name: string): boolean {
-    if (this.processes.has(name)) return true;
+    if (this.registry.has(name)) return true;
     
-    for (const procName of this.processes.keys()) {
-      if (procName.startsWith(`${name}-`)) return true;
+    for (const proc of this.registry.getAll()) {
+      if (proc.getConfig().name === name) return true;
     }
     
     return false;
@@ -433,7 +361,7 @@ export class ProcessManager {
    * @param baseName Base process name
    */
   isClustered(baseName: string): boolean {
-    return this.clusters.has(baseName);
+    return !!this.clusterManager.getCluster(baseName);
   }
 
   /**
@@ -453,9 +381,9 @@ export class ProcessManager {
       for (let i = currentCount; i < newCount; i++) {
         const process = new ManagedProcess(config, i, this.eventEmitter);
         const name = `${baseName}-${i}`;
-        this.processes.set(name, process);
+        this.registry.add(name, process);
         
-        const cluster = this.clusters.get(baseName);
+        const cluster = this.clusterManager.getCluster(baseName);
         if (cluster) {
           cluster.addInstance(i, { weight: config.instanceWeight || 1 });
         }
@@ -466,12 +394,12 @@ export class ProcessManager {
       // Remove instances
       for (let i = currentCount - 1; i >= newCount; i--) {
         const name = `${baseName}-${i}`;
-        const process = this.processes.get(name);
+        const process = this.registry.get(name);
         if (process) {
           process.stop();
-          this.processes.delete(name);
+          this.registry.delete(name);
           
-          const cluster = this.clusters.get(baseName);
+          const cluster = this.clusterManager.getCluster(baseName);
           if (cluster) {
             cluster.removeInstance(i);
           }
@@ -503,7 +431,7 @@ export class ProcessManager {
     }
     
     // Register all processes with monitoring
-    for (const [name, proc] of this.processes.entries()) {
+    for (const proc of this.registry.getAll()) {
       const status = proc.getStatus();
       if (status.pid) {
         const config = proc.getConfig();
