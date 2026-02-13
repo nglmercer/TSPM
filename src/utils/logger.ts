@@ -16,6 +16,7 @@ export const LogLevelValues = {
   INFO: 'info',
   WARN: 'warn',
   ERROR: 'error',
+  SUCCESS: 'success',
   SILENT: 'silent',
 } as const;
 
@@ -29,6 +30,7 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   [LogLevelValues.INFO]: 1,
   [LogLevelValues.WARN]: 2,
   [LogLevelValues.ERROR]: 3,
+  [LogLevelValues.SUCCESS]: 3,
   [LogLevelValues.SILENT]: 4,
 };
 
@@ -39,8 +41,9 @@ const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
   [LogLevelValues.DEBUG]: '\x1b[36m', // Cyan
   [LogLevelValues.INFO]: '\x1b[32m',  // Green
   [LogLevelValues.WARN]: '\x1b[33m',  // Yellow
-  [LogLevelValues.ERROR]: '\x1b[31m', // Red
-  [LogLevelValues.SILENT]: '\x1b[0m', // Reset
+  [LogLevelValues.ERROR]: '\x1b[31m',   // Red
+  [LogLevelValues.SUCCESS]: '\x1b[32m', // Green
+  [LogLevelValues.SILENT]: '\x1b[0m',  // Reset
 };
 
 /**
@@ -269,6 +272,29 @@ export class Logger {
   }
 
   /**
+   * Log a success message
+   */
+  success(message: string, metadata?: LogMetadata): void {
+    this.write(this.createEntry(LogLevelValues.SUCCESS, message, metadata));
+  }
+
+  /**
+   * Log a raw message without formatting
+   */
+  raw(message: string): void {
+    if (this.console) {
+      console.log(message);
+    }
+    if (this.fileOutput && this.file) {
+      try {
+        appendFileSync(this.file, message + '\n');
+      } catch (e) {
+        console.error(`[TSPM] Failed to write to log file: ${e}`);
+      }
+    }
+  }
+
+  /**
    * Set log level
    */
   setLevel(level: LogLevel): void {
@@ -342,7 +368,7 @@ export class LogManager {
       // Create new empty log file
       writeFileSync(logPath, '');
     } catch (e) {
-      console.error(`[TSPM] Log rotation error for ${logPath}: ${e}`);
+      log.error(`[TSPM] Log rotation error for ${logPath}: ${e}`);
     }
   }
 
@@ -381,7 +407,7 @@ export class LogManager {
         unlinkSync(logFiles[i].path);
       }
     } catch (e) {
-      console.error(`[TSPM] Log cleanup error: ${e}`);
+      log.error(`[TSPM] Log cleanup error: ${e}`);
     }
   }
 }
@@ -414,4 +440,6 @@ export const log = {
   info: (message: string, metadata?: LogMetadata) => getLogger().info(message, metadata),
   warn: (message: string, metadata?: LogMetadata) => getLogger().warn(message, metadata),
   error: (message: string, metadata?: LogMetadata) => getLogger().error(message, metadata),
+  success: (message: string, metadata?: LogMetadata) => getLogger().success(message, metadata),
+  raw: (message: string) => getLogger().raw(message),
 };

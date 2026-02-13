@@ -2,7 +2,7 @@ import { spawn, type Subprocess } from "bun";
 import type { ProcessConfig, ProcessStatus } from "./types";
 import { ENV_VARS } from "../utils/config/constants";
 import { getProcessStats, type ProcessStats } from "../utils/stats";
-import { LogManager } from "../utils/logger";
+import { LogManager, log } from "../utils/logger";
 
 export class ManagedProcess {
   private subprocess?: Subprocess;
@@ -32,7 +32,7 @@ export class ManagedProcess {
   async start(): Promise<void> {
     this.isManuallyStopped = false;
     const name = this.fullProcessName;
-    console.log(LogManager.formatMessage(`[TSPM] Starting process: ${name} (instance: ${this.instanceId})`));
+    log.info(`[TSPM] Starting process: ${name} (instance: ${this.instanceId})`);
     
     const stdoutPath = this.config.stdout;
     const stderrPath = this.config.stderr;
@@ -96,7 +96,7 @@ export class ManagedProcess {
         }
       }
     } catch (e) {
-      console.error(LogManager.formatMessage(`[TSPM] Error writing to ${path}: ${e}`));
+      log.error(`[TSPM] Error writing to ${path}: ${e}`);
     }
   }
 
@@ -112,15 +112,15 @@ export class ManagedProcess {
     if (this.isManuallyStopped) return;
 
     if (error) {
-      console.error(LogManager.formatMessage(`[TSPM] Process ${name} error: ${error.message}`));
+      log.error(`[TSPM] Process ${name} error: ${error.message}`);
     }
 
-    console.log(LogManager.formatMessage(`[TSPM] Process ${name} exited with code ${exitCode}`));
+    log.info(`[TSPM] Process ${name} exited with code ${exitCode}`);
     
     if (this.config.autorestart !== false) {
       this.restartCount++;
       const delay = Math.min(1000 * Math.pow(2, this.restartCount), 30000); // Exponential backoff
-      console.log(LogManager.formatMessage(`[TSPM] Restarting ${name} in ${delay}ms...`));
+      log.info(`[TSPM] Restarting ${name} in ${delay}ms...`);
       setTimeout(() => this.start(), delay);
     }
   }
@@ -133,7 +133,7 @@ export class ManagedProcess {
     this.isManuallyStopped = true;
     if (this.subprocess) {
       this.subprocess.kill();
-      console.log(LogManager.formatMessage(`[TSPM] Stopped process: ${name}`));
+      log.info(`[TSPM] Stopped process: ${name}`);
     }
   }
 

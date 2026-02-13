@@ -1,9 +1,10 @@
 /**
  * Configuration Schema and Validation
- * Defines types and validation for TSPM process configuration
+ * Defines types and validation for TSPM process configuration using ArkType
  * @module utils/config/schema
  */
 
+import { type } from 'arktype';
 import { 
   ErrorSeverityValues, 
   type ErrorSeverity,
@@ -11,66 +12,76 @@ import {
 } from './constants';
 
 /**
- * Process configuration options
+ * ArkType schema for process configuration
  */
-export interface ProcessConfig {
+export const ProcessConfigSchema = type({
   /** Unique name for the process */
-  name: string;
+  'name': 'string>0',
   /** Script or command to run */
-  script: string;
+  'script': 'string>0',
   /** Command line arguments */
-  args?: string[];
+  'args?': 'string[]',
   /** Environment variables */
-  env?: Record<string, string>;
+  'env?': 'Record<string, string>',
   /** Current working directory */
-  cwd?: string;
+  'cwd?': 'string',
   /** Auto-restart on exit (default: true) */
-  autorestart?: boolean;
+  'autorestart?': 'boolean',
   /** Watch files for changes and restart */
-  watch?: boolean | string[];
+  'watch?': 'boolean | string[]',
   /** Ignore patterns for watch mode */
-  ignoreWatch?: string[];
+  'ignoreWatch?': 'string[]',
   /** Maximum restart attempts */
-  maxRestarts?: number;
+  'maxRestarts?': 'number>=0',
   /** Delay between restarts in ms (default: exponential backoff) */
-  restartDelay?: number;
+  'restartDelay?': 'number>=0',
   /** Standard output log file path */
-  stdout?: string;
+  'stdout?': 'string',
   /** Standard error log file path */
-  stderr?: string;
+  'stderr?': 'string',
   /** Combine stdout and stderr */
-  combineLogs?: boolean;
+  'combineLogs?': 'boolean',
   /** Log timestamp format */
-  logDateFormat?: string;
+  'logDateFormat?': 'string',
   /** Instances count (for clustering) */
-  instances?: number;
+  'instances?': 'number>=0',
   /** Execute as cron job */
-  cron?: string;
+  'cron?': 'string',
   /** Kill process on stop signal */
-  killTimeout?: number;
+  'killTimeout?': 'number>=0',
   /** Process namespace/group */
-  namespace?: string;
+  'namespace?': 'string',
   /** Process user (Unix only) */
-  user?: string;
+  'user?': 'string',
   /** Process group (Unix only) */
-  group?: string;
-}
+  'group?': 'string',
+});
 
 /**
- * TSPM configuration file structure
+ * Process configuration type inferred from ArkType schema
  */
-export interface TSPMConfig {
+export type ProcessConfig = typeof ProcessConfigSchema.infer;
+
+/**
+ * ArkType schema for TSPM configuration file structure
+ */
+export const TSPMConfigSchema = type({
   /** Array of process configurations */
-  processes: ProcessConfig[];
+  'processes': ProcessConfigSchema.array(),
   /** Default settings applied to all processes */
-  defaults?: Partial<ProcessConfig>;
+  'defaults?': ProcessConfigSchema.partial(),
   /** Default namespace for all processes */
-  namespace?: string;
+  'namespace?': 'string',
   /** Log directory for all processes */
-  logDir?: string;
+  'logDir?': 'string',
   /** PID file directory */
-  pidDir?: string;
-}
+  'pidDir?': 'string',
+});
+
+/**
+ * TSPM configuration type inferred from ArkType schema
+ */
+export type TSPMConfig = typeof TSPMConfigSchema.infer;
 
 /**
  * Validation error details
@@ -97,12 +108,18 @@ export interface ValidationResult {
 }
 
 /**
- * Required fields for process configuration
+ * Convert ArkType error path to field string
  */
-const REQUIRED_PROCESS_FIELDS: (keyof ProcessConfig)[] = ['name', 'script'];
+function pathToField(path: readonly PropertyKey[]): string {
+  return path
+    .filter((p): p is string | number => typeof p === 'string' || typeof p === 'number')
+    .map(p => typeof p === 'number' ? `[${p}]` : `.${p}`)
+    .join('')
+    .replace(/^\./, '');
+}
 
 /**
- * Validate a single process configuration
+ * Validate a single process configuration using ArkType
  *
  * @param config - Process configuration to validate
  * @param index - Index in the processes array (for error messages)
@@ -115,134 +132,31 @@ export function validateProcessConfig(
   const errors: ValidationError[] = [];
   const prefix = index !== undefined ? `processes[${index}]` : 'process';
   
-  if (!config || typeof config !== 'object') {
-    errors.push({
-      field: prefix,
-      message: 'Process configuration must be an object',
-      severity: ErrorSeverityValues.ERROR,
-    });
-    return errors;
-  }
+  // Use ArkType validation
+  const result = ProcessConfigSchema(config);
   
-  const proc = config as Record<string, unknown>;
-  
-  // Check required fields
-  for (const field of REQUIRED_PROCESS_FIELDS) {
-    if (proc[field] === undefined || proc[field] === null) {
+  if (result instanceof type.errors) {
+    for (const problem of result) {
+      const fieldPath = prefix + (problem.path.length > 0 ? '.' + pathToField(problem.path) : '');
       errors.push({
-        field: `${prefix}.${field}`,
-        message: `Required field '${field}' is missing`,
+        field: fieldPath || prefix,
+        message: problem.message,
         severity: ErrorSeverityValues.ERROR,
       });
     }
   }
   
-  // Validate name
-  if (typeof proc.name !== 'undefined') {
-    if (typeof proc.name !== 'string' || proc.name.trim() === '') {
-      errors.push({
-        field: `${prefix}.name`,
-        message: 'Process name must be a non-empty string',
-        severity: ErrorSeverityValues.ERROR,
-      });
-    } else if (!/^[a-zA-Z0-9_-]+$/.test(proc.name as string)) {
-      errors.push({
-        field: `${prefix}.name`,
-        message: 'Process name can only contain letters, numbers, underscores, and hyphens',
-        severity: ErrorSeverityValues.WARNING,
-      });
-    }
-  }
-  
-  // Validate script
-  if (typeof proc.script !== 'undefined') {
-    if (typeof proc.script !== 'string' || proc.script.trim() === '') {
-      errors.push({
-        field: `${prefix}.script`,
-        message: 'Script must be a non-empty string',
-        severity: ErrorSeverityValues.ERROR,
-      });
-    }
-  }
-  
-  // Validate args
-  if (typeof proc.args !== 'undefined') {
-    if (!Array.isArray(proc.args) || !proc.args.every(a => typeof a === 'string')) {
-      errors.push({
-        field: `${prefix}.args`,
-        message: 'Args must be an array of strings',
-        severity: ErrorSeverityValues.ERROR,
-      });
-    }
-  }
-  
-  // Validate env
-  if (typeof proc.env !== 'undefined') {
-    if (typeof proc.env !== 'object' || proc.env === null) {
-      errors.push({
-        field: `${prefix}.env`,
-        message: 'Env must be an object',
-        severity: ErrorSeverityValues.ERROR,
-      });
-    } else {
-      const env = proc.env as Record<string, unknown>;
-      for (const [key, value] of Object.entries(env)) {
-        if (typeof value !== 'string') {
-          errors.push({
-            field: `${prefix}.env.${key}`,
-            message: 'Environment variable values must be strings',
-            severity: ErrorSeverityValues.WARNING,
-          });
-        }
-      }
-    }
-  }
-  
-  // Validate numeric fields
-  const numericFields: (keyof ProcessConfig)[] = ['maxRestarts', 'restartDelay', 'instances', 'killTimeout'];
-  for (const field of numericFields) {
-    if (typeof proc[field] !== 'undefined') {
-      if (typeof proc[field] !== 'number' || (proc[field] as number) < 0) {
+  // Additional validation: process name format (warning)
+  if (config && typeof config === 'object' && config !== null) {
+    const proc = config as Record<string, unknown>;
+    if (typeof proc.name === 'string' && proc.name.trim() !== '') {
+      if (!/^[a-zA-Z0-9_-]+$/.test(proc.name as string)) {
         errors.push({
-          field: `${prefix}.${field}`,
-          message: `${field} must be a non-negative number`,
-          severity: ErrorSeverityValues.ERROR,
+          field: `${prefix}.name`,
+          message: 'Process name can only contain letters, numbers, underscores, and hyphens',
+          severity: ErrorSeverityValues.WARNING,
         });
       }
-    }
-  }
-  
-  // Validate boolean fields
-  const booleanFields: (keyof ProcessConfig)[] = ['autorestart', 'combineLogs'];
-  for (const field of booleanFields) {
-    if (typeof proc[field] !== 'undefined' && typeof proc[field] !== 'boolean') {
-      errors.push({
-        field: `${prefix}.${field}`,
-        message: `${field} must be a boolean`,
-        severity: ErrorSeverityValues.ERROR,
-      });
-    }
-  }
-  
-  // Validate watch
-  if (typeof proc.watch !== 'undefined') {
-    if (typeof proc.watch !== 'boolean' && !Array.isArray(proc.watch)) {
-      errors.push({
-        field: `${prefix}.watch`,
-        message: 'Watch must be a boolean or an array of paths',
-        severity: ErrorSeverityValues.ERROR,
-      });
-    }
-  }
-  
-  // Validate ignoreWatch
-  if (typeof proc.ignoreWatch !== 'undefined') {
-    if (!Array.isArray(proc.ignoreWatch) || !proc.ignoreWatch.every(w => typeof w === 'string')) {
-      errors.push({
-        field: `${prefix}.ignoreWatch`,
-        message: 'ignoreWatch must be an array of strings',
-        severity: ErrorSeverityValues.ERROR,
-      });
     }
   }
   
@@ -250,7 +164,7 @@ export function validateProcessConfig(
 }
 
 /**
- * Validate full TSPM configuration
+ * Validate full TSPM configuration using ArkType
  *
  * @param config - Configuration object to validate
  * @returns Validation result with errors and warnings
@@ -259,34 +173,28 @@ export function validateConfig(config: unknown): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
   
-  if (!config || typeof config !== 'object') {
-    return {
-      valid: false,
-      errors: [{
-        field: 'root',
-        message: 'Configuration must be an object',
+  // Use ArkType validation for the main config structure
+  const result = TSPMConfigSchema(config);
+  
+  if (result instanceof type.errors) {
+    for (const problem of result) {
+      const fieldPath = problem.path.length > 0 ? pathToField(problem.path) : 'root';
+      errors.push({
+        field: fieldPath,
+        message: problem.message,
         severity: ErrorSeverityValues.ERROR,
-      }],
-      warnings: [],
-    };
-  }
-  
-  const cfg = config as Record<string, unknown>;
-  
-  // Check for processes array
-  if (!Array.isArray(cfg.processes)) {
-    errors.push({
-      field: 'processes',
-      message: 'Configuration must have a "processes" array',
-      severity: ErrorSeverityValues.ERROR,
-    });
+      });
+    }
     return { valid: false, errors, warnings };
   }
   
-  // Validate each process
+  // Additional validation: check for duplicate process names
   const processNames = new Set<string>();
-  for (let i = 0; i < cfg.processes.length; i++) {
-    const procErrors = validateProcessConfig(cfg.processes[i], i);
+  for (let i = 0; i < result.processes.length; i++) {
+    const proc = result.processes[i]!;
+    
+    // Validate each process with detailed validation
+    const procErrors = validateProcessConfig(proc, i);
     
     for (const error of procErrors) {
       if (error.severity === ErrorSeverityValues.ERROR) {
@@ -297,8 +205,7 @@ export function validateConfig(config: unknown): ValidationResult {
     }
     
     // Check for duplicate names
-    const proc = cfg.processes[i] as Record<string, unknown>;
-    if (typeof proc.name === 'string') {
+    if (proc.name) {
       if (processNames.has(proc.name)) {
         errors.push({
           field: `processes[${i}].name`,
@@ -312,8 +219,8 @@ export function validateConfig(config: unknown): ValidationResult {
   }
   
   // Validate defaults if present
-  if (cfg.defaults) {
-    const defaultErrors = validateProcessConfig(cfg.defaults, undefined);
+  if (result.defaults) {
+    const defaultErrors = validateProcessConfig(result.defaults, undefined);
     for (const error of defaultErrors) {
       if (error.severity === ErrorSeverityValues.ERROR) {
         warnings.push({
@@ -329,6 +236,42 @@ export function validateConfig(config: unknown): ValidationResult {
     errors,
     warnings,
   };
+}
+
+/**
+ * Type guard to check if a value is a valid ProcessConfig
+ */
+export function isProcessConfig(value: unknown): value is ProcessConfig {
+  return !(ProcessConfigSchema(value) instanceof type.errors);
+}
+
+/**
+ * Type guard to check if a value is a valid TSPMConfig
+ */
+export function isTSPMConfig(value: unknown): value is TSPMConfig {
+  return !(TSPMConfigSchema(value) instanceof type.errors);
+}
+
+/**
+ * Assert that a value is a valid ProcessConfig
+ * @throws Error if validation fails
+ */
+export function assertProcessConfig(value: unknown): asserts value is ProcessConfig {
+  const result = ProcessConfigSchema(value);
+  if (result instanceof type.errors) {
+    throw new Error(`Invalid ProcessConfig: ${result.summary}`);
+  }
+}
+
+/**
+ * Assert that a value is a valid TSPMConfig
+ * @throws Error if validation fails
+ */
+export function assertTSPMConfig(value: unknown): asserts value is TSPMConfig {
+  const result = TSPMConfigSchema(value);
+  if (result instanceof type.errors) {
+    throw new Error(`Invalid TSPMConfig: ${result.summary}`);
+  }
 }
 
 /**
@@ -372,6 +315,38 @@ export function normalizeConfig(config: TSPMConfig): TSPMConfig {
 
   return {
     ...config,
-    processes: config.processes.map((proc) => applyDefaults(proc, defaults)),
+    processes: config.processes.map((proc: ProcessConfig) => applyDefaults(proc, defaults)),
   };
+}
+
+/**
+ * Parse and validate configuration from unknown input
+ * Returns the validated config or throws an error
+ *
+ * @param config - Unknown configuration input
+ * @returns Validated TSPMConfig
+ * @throws Error if validation fails
+ */
+export function parseConfig(config: unknown): TSPMConfig {
+  const result = TSPMConfigSchema(config);
+  if (result instanceof type.errors) {
+    throw new Error(`Configuration validation failed: ${result.summary}`);
+  }
+  return result;
+}
+
+/**
+ * Parse and validate process configuration from unknown input
+ * Returns the validated config or throws an error
+ *
+ * @param config - Unknown process configuration input
+ * @returns Validated ProcessConfig
+ * @throws Error if validation fails
+ */
+export function parseProcessConfig(config: unknown): ProcessConfig {
+  const result = ProcessConfigSchema(config);
+  if (result instanceof type.errors) {
+    throw new Error(`Process configuration validation failed: ${result.summary}`);
+  }
+  return result;
 }

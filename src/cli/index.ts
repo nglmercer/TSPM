@@ -126,7 +126,7 @@ async function startCommand(
   // Use default config file if not specified
   const configPath = configFile || 'tspm.yaml';
 
-  console.log(`[TSPM] Loading configuration from: ${configPath}`);
+  log.info(`[TSPM] Loading configuration from: ${configPath}`);
 
   try {
     const config = await ConfigLoader.load(configPath);
@@ -139,11 +139,11 @@ async function startCommand(
 
     if (processesToStart.length === 0) {
       const nameMsg = options.name ? ` with name '${options.name}'` : '';
-      console.error(`[TSPM] No process found${nameMsg} in config file: ${configPath}`);
+      log.error(`[TSPM] No process found${nameMsg} in config file: ${configPath}`);
       process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
     }
 
-    console.log(`[TSPM] Starting ${processesToStart.length} process(es)...`);
+    log.info(`[TSPM] Starting ${processesToStart.length} process(es)...`);
 
     for (const procConfig of processesToStart) {
       manager.addProcess(procConfig);
@@ -163,7 +163,7 @@ async function startCommand(
           config: procConfig,
           state: status.state || PROCESS_STATE.RUNNING,
         });
-        console.log(`[TSPM] ✓ Started: ${procConfig.name} (pid: ${pid})`);
+        log.success(`[TSPM] ✓ Started: ${procConfig.name} (pid: ${pid})`);破
       }
     }
 
@@ -175,13 +175,13 @@ async function startCommand(
     );
 
     if (options.daemon) {
-      console.log(`[TSPM] Running in daemon mode`);
+      log.info(`[TSPM] Running in daemon mode`);
       writeDaemonStatus({ pid: process.pid, startedAt: Date.now(), configFile: configPath });
     }
 
-    console.log(`[TSPM] All processes started successfully`);
+    log.success(`[TSPM] All processes started successfully`);
   } catch (error) {
-    console.error(`[TSPM] Failed to start: ${error}`);
+    log.error(`[TSPM] Failed to start: ${error}`);
     process.exit(EXIT_CODES.PROCESS_START_FAILED);
   }
 }
@@ -193,25 +193,25 @@ function stopCommand(options: { all?: boolean; name?: string }): void {
   const status = readProcessStatus();
 
   if (Object.keys(status).length === 0) {
-    console.log('[TSPM] No processes to stop');
+    log.info('[TSPM] No processes to stop');
     return;
   }
 
   if (options.all || (!options.name && Object.keys(status).length > 0)) {
     // Stop all processes
-    console.log('[TSPM] Stopping all processes...');
+    log.info('[TSPM] Stopping all processes...');
     for (const [name, data] of Object.entries(status)) {
       try {
         if (data.pid) {
         process.kill(data.pid, 'SIGTERM');
       }
         removeProcessStatus(name);
-        console.log(`[TSPM] ✓ Stopped: ${name}`);
+        log.success(`[TSPM] ✓ Stopped: ${name}`);
       } catch (e) {
-        console.error(`[TSPM] Failed to stop ${name}: ${e}`);
+        log.error(`[TSPM] Failed to stop ${name}: ${e}`);
       }
     }
-    console.log('[TSPM] All processes stopped');
+    log.info('[TSPM] All processes stopped');
   } else if (options.name) {
     // Stop specific process
     const data = status[options.name];
@@ -221,13 +221,13 @@ function stopCommand(options: { all?: boolean; name?: string }): void {
           process.kill(data.pid, 'SIGTERM');
         }
         removeProcessStatus(options.name);
-        console.log(`[TSPM] ✓ Stopped: ${options.name}`);
+        log.success(`[TSPM] ✓ Stopped: ${options.name}`);
       } catch (e) {
-        console.error(`[TSPM] Failed to stop ${options.name}: ${e}`);
+        log.error(`[TSPM] Failed to stop ${options.name}: ${e}`);
         process.exit(EXIT_CODES.ERROR);
       }
     } else {
-      console.error(`[TSPM] Process not found: ${options.name}`);
+      log.error(`[TSPM] Process not found: ${options.name}`);
       process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
     }
   }

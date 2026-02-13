@@ -26,6 +26,7 @@ import {
   DEFAULT_PROCESS_CONFIG,
   ENV_VARS,
 } from "./constants";
+import { log } from "../logger";
 
 /**
  * Configuration manager options
@@ -132,7 +133,7 @@ export class ConfigManager {
       // Log warnings
       if (validation.warnings.length > 0) {
         for (const warning of validation.warnings) {
-          console.warn(`[TSPM] Warning: ${warning.field} - ${warning.message}`);
+          log.warn(`[TSPM] Warning: ${warning.field} - ${warning.message}`);
         }
       }
     }
@@ -161,21 +162,21 @@ export class ConfigManager {
 
     if (!existsSync(logDir)) {
       mkdirSync(logDir, { recursive: true });
-      console.log(`[TSPM] Created log directory: ${logDir}`);
+      log.info(`[TSPM] Created log directory: ${logDir}`);
     }
 
     if (!existsSync(pidDir)) {
       mkdirSync(pidDir, { recursive: true });
-      console.log(`[TSPM] Created pid directory: ${pidDir}`);
+      log.info(`[TSPM] Created pid directory: ${pidDir}`);
     }
 
     // 2. Create sample config if none exists
     const existingConfig = this.discoverConfigFile();
     if (!existingConfig || force) {
       const configPath = await this.createSampleConfig(format);
-      console.log(`[TSPM] Created sample configuration: ${configPath}`);
+      log.info(`[TSPM] Created sample configuration: ${configPath}`);
     } else {
-      console.log(`[TSPM] Config already exists: ${existingConfig}`);
+      log.info(`[TSPM] Config already exists: ${existingConfig}`);
     }
 
     return true;
