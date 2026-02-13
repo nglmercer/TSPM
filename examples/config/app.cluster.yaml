@@ -1,0 +1,47 @@
+# Cluster TSPM Configuration
+# Run from project root: bun start --config examples/config/app.cluster.yaml
+
+defaults:
+  logDir: logs
+  pidDir: ./.pids
+  maxRestarts: 10
+  restartBackoff: 2
+
+processes:
+  # Clustered API Server
+  - name: api-cluster
+    script: bun
+    args: ["run", "examples/applications/server.ts"]
+    
+    # Run 2 instances
+    instances: 2
+    
+    # Load Balancing Strategy
+    lbStrategy: round-robin
+    
+    env:
+      NODE_ENV: production
+      PORT: "4000"
+    
+    healthCheck:
+      enabled: true
+      path: /health
+      port: 4000
+      interval: 5000
+      timeout: 2000
+      retries: 3
+    
+    watch: true
+    ignoreWatch: ["**/*.log", "**/*.tmp"]
+
+  # Worker pool
+  - name: worker-pool
+    script: bun
+    args: ["run", "examples/applications/worker.ts"]
+    instances: 2
+    
+    env:
+      SIMULATE_MEMORY_LEAK: "false"
+    
+    minUptime: 5000
+    maxRestarts: 5

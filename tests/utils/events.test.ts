@@ -391,8 +391,8 @@ describe("emitProcessEvent", () => {
     emitter.on(EventTypeValues.PROCESS_START, (event) => {
       receivedEvent = event;
     });
-    
-    emitProcessEvent(emitter, EventTypeValues.PROCESS_START, "test-process", 0, { pid: 123 } as any);
+    //@ts-ignore
+    emitProcessEvent(emitter, EventTypeValues.PROCESS_START, "test-process", 0, { pid: 123 });
     
     // Wait for async emission
     await new Promise(resolve => setTimeout(resolve, 10));

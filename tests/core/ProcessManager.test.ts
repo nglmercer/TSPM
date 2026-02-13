@@ -32,8 +32,8 @@ describe("ProcessManager", () => {
         
         const statuses = manager.getStatuses();
         expect(statuses).toHaveLength(2);
-        expect(statuses.map((s: any) => s.name)).toContain("p1");
-        expect(statuses.map((s: any) => s.name)).toContain("p2");
+        expect(statuses.map((s) => s.name)).toContain("p1");
+        expect(statuses.map((s) => s.name)).toContain("p2");
     });
 
     test("should add multiple instances", () => {

@@ -1,0 +1,79 @@
+{
+  // Full TSPM Configuration Example
+  // Run from project root: bun start --config examples/config/app.full.jsonc
+  
+  "defaults": {
+    "autorestart": true,
+    "maxRestarts": 10,
+    "restartDelay": 1000,
+    "logDir": "logs",
+    "pidDir": ".pids"
+  },
+  
+  "namespace": "example-full",
+  
+  "webhooks": [
+    {
+      "url": "https://example.com/webhook",
+      "events": ["process:start", "process:stop", "process:error"],
+      "enabled": false
+    }
+  ],
+  
+  "processes": [
+    {
+      "name": "detailed-server",
+      "script": "bun",
+      "args": ["run", "examples/applications/server.ts"],
+      
+      "env": {
+        "PORT": "5000",
+        "NODE_ENV": "production",
+        "API_KEY": "secret-value"
+      },
+      
+      // Explicitly setting CWD if needed, but here we assume root execution for args
+      // "cwd": "./examples/applications",
+      
+      "maxMemory": 512,
+      
+      "instances": 3,
+      "lbStrategy": "weighted",
+      "instanceWeight": 10,
+      
+      "healthCheck": {
+        "enabled": true,
+        "protocol": "http",
+        "path": "/health",
+        "port": 5000,
+        "method": "GET",
+        "expectedStatus": 200,
+        "interval": 10000,
+        "timeout": 3000,
+        "retries": 3,
+        "initialDelay": 5000
+      },
+      
+      "watch": true,
+      "ignoreWatch": ["node_modules", "logs"],
+      
+      "stdout": "logs/detailed-server.out.log",
+      "stderr": "logs/detailed-server.err.log",
+      "logDateFormat": "YYYY-MM-DD HH:mm:ss",
+      
+      "killTimeout": 5000,
+      "minUptime": 1000,
+      
+      "labels": {
+        "tier": "backend",
+        "version": "1.0.0"
+      },
+      
+      "docker": {
+        "enabled": false,
+        "containerName": "tspm-server",
+        "restartPolicy": "unless-stopped"
+      }
+    }
+  ]
+}

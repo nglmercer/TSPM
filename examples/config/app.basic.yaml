@@ -1,0 +1,32 @@
+# Basic TSPM Configuration
+# Run from project root: bun start --config examples/config/app.basic.yaml
+
+processes:
+  - name: basic-server
+    script: bun
+    args: 
+      - run
+      - examples/applications/server.ts
+    env:
+      PORT: "3000"
+      NODE_ENV: development
+    autorestart: true
+    stdout: logs/server.out.log
+    stderr: logs/server.err.log
+
+  - name: basic-worker
+    script: bun
+    args:
+      - run
+      - examples/applications/worker.ts
+    env:
+      SIMULATE_MEMORY_LEAK: "false"
+    autorestart: true
+    maxRestarts: 5
+    restartDelay: 2000
+    stdout: logs/worker.log
+    combineLogs: true
+
+defaults:
+  logDir: logs
+  pidDir: ./.pids
