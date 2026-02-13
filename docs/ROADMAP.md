@@ -116,14 +116,14 @@ processes:
 
 ---
 
-## Phase 7: PM2 Parity Features (Planned)
+## Phase 7: PM2 Parity Features (In Progress)
 
-### 7.1: Startup & Persistence (High Priority)
+### 7.1: Startup & Persistence ✅ (COMPLETED)
 
-- [ ] `startup` command - Generate system startup scripts (systemd, launchd, openrc)
-- [ ] `save` command - Persist current process list
-- [ ] `resurrect` command - Restore processes from saved state
-- [ ] `unstartup` command - Remove startup scripts
+- [x] `startup` command - Generate system startup scripts (systemd, launchd, openrc)
+- [x] `save` command - Persist current process list
+- [x] `resurrect` command - Restore processes from saved state
+- [x] `unstartup` command - Remove startup scripts
 
 ### 7.2: Log Management (High Priority)
 
@@ -182,9 +182,9 @@ processes:
 
 | Priority | Feature           | Phase   | Status |
 | -------- | ----------------- | ------- | ------ |
-| High     | Startup scripts   | Phase 7 | ⏳     |
-| High     | Save/Resurrect    | Phase 7 | ⏳     |
-| High     | Log flush         | Phase 7 | ⏳     |
+| High     | Startup scripts   | Phase 7 | ✅     |
+| High     | Save/Resurrect    | Phase 7 | ✅     |
+| High     | Log flush         | Phase 7 | ✅     |
 | Medium   | Reset command     | Phase 7 | ⏳     |
 | Medium   | Deployment system | Phase 7 | ⏳     |
 | Medium   | Static serve      | Phase 7 | ⏳     |
@@ -206,8 +206,8 @@ processes:
 | Environment vars   | ✅  | ✅   | .env support               |
 | Source maps        | ✅  | ✅   | Stack trace support        |
 | Webhooks           | ✅  | ✅   | Event notifications        |
-| Startup scripts    | ✅  | ❌   | systemd/launchd generation |
-| Save/Resurrect     | ✅  | ❌   | Process persistence        |
+| Startup scripts    | ✅  | ✅   | systemd/launchd generation |
+| Save/Resurrect     | ✅  | ✅   | Process persistence        |
 | Log flush          | ✅  | ✅   | Clear logs command         |
 | Log reload         | ✅  | ✅   | Reload logs command        |
 | Deployment         | ✅  | ❌   | Remote deploy via SSH      |

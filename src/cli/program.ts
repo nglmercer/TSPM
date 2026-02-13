@@ -20,7 +20,11 @@ import {
   saveCommand,
   resurrectCommand,
   startupCommand,
-  unstartupCommand
+  unstartupCommand,
+  resetCommand,
+  prettylistCommand,
+  serveCommand,
+  reportCommand
 } from './commands';
 
 /**
@@ -173,8 +177,12 @@ export function createProgram(): Command {
     .description('Reset all metrics for a process')
     .option('-n, --name <name>', 'Reset metrics for the specified process')
     .option('-a, --all', 'Reset metrics for all processes')
-    .action(() => {
-      log.info('[TSPM] Metrics reset not yet implemented');
+    .action((options) => {
+      if (!options.name && !options.all) {
+        log.error('[TSPM] Please specify a process name with --name or use --all');
+        process.exit(EXIT_CODES.PROCESS_NOT_FOUND);
+      }
+      resetCommand(options);
     });
 
   // Cluster command
@@ -233,6 +241,36 @@ export function createProgram(): Command {
     .command('unstartup')
     .description('Remove startup script')
     .action(unstartupCommand);
+
+  // Prettylist command
+  program
+    .command('prettylist')
+    .description('Pretty-printed JSON process list')
+    .option('-n, --name <name>', 'Show details for the specified process')
+    .action(prettylistCommand);
+
+  // Serve command
+  program
+    .command('serve')
+    .description('Serve static files from a directory')
+    .argument('[path]', 'Directory to serve (default: current directory)', '.')
+    .option('-p, --port <number>', 'Port to listen on', '8080')
+    .option('--spa', 'Enable SPA mode (fallback to index.html)', false)
+    .option('--cors', 'Enable CORS headers', false)
+    .action((path, options) => {
+      serveCommand(path, {
+        port: parseInt(options.port, 10),
+        spa: options.spa,
+        cors: options.cors,
+      });
+    });
+
+  // Report command
+  program
+    .command('report')
+    .description('Generate diagnostic report')
+    .option('-o, --output <file>', 'Output file path (default: stdout)')
+    .action(reportCommand);
 
   return program;
 }

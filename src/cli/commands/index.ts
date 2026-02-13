@@ -11,6 +11,10 @@ export * from './dev';
 export * from './flush';
 export * from './reloadLogs';
 export * from './startup';
+export * from './reset';
+export * from './prettylist';
+export * from './serve';
+export * from './report';
 
 import { startCommand } from './start';
 import { stopCommand } from './stop';

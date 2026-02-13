@@ -223,6 +223,28 @@ TSPM (TypeScript Process Manager) is a PM2 alternative written in TypeScript for
 
 ### Test Files (47 tests passing)
 
+## Phase 7: PM2 Parity Features (In Progress)
+
+### Phase 7.1: Startup & Persistence ✅ (COMPLETED)
+
+| Feature               | Status | Description                               |
+| --------------------- | ------ | ----------------------------------------- |
+| **Save Command**      | ✅     | Persist current process list to dump file |
+| **Resurrect Command** | ✅     | Restore processes from saved dump file    |
+| **Startup Command**   | ✅     | Generate systemd startup scripts          |
+| **Unstartup Command** | ✅     | Remove systemd startup scripts            |
+
+#### New CLI Commands
+
+| Command     | Status | Description                                    |
+| ----------- | ------ | ---------------------------------------------- |
+| `save`      | ✅     | Save current process list to ~/.tspm/dump.json |
+| `resurrect` | ✅     | Restore processes from dump file               |
+| `startup`   | ✅     | Generate system startup script (systemd)       |
+| `unstartup` | ✅     | Remove startup script                          |
+
+---
+
 ```
 tests/
 ├── core/
