@@ -251,6 +251,18 @@ export interface ProcessOOMEvent extends BaseEvent {
 }
 
 /**
+ * Process ready event
+ */
+export interface ProcessReadyEvent extends BaseEvent {
+  type: typeof EventTypeValues.PROCESS_READY;
+  data: {
+    processName: string;
+    instanceId: number;
+    pid?: number;
+  };
+}
+
+/**
  * System start event
  */
 export interface SystemStartEvent extends BaseEvent {
@@ -318,6 +330,7 @@ export type TSPMEvent =
   | ProcessStateChangeEvent
   | ProcessLogEvent
   | ProcessOOMEvent
+  | ProcessReadyEvent
   | InstanceAddEvent 
   | InstanceRemoveEvent 
   | InstanceHealthChangeEvent

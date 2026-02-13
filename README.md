@@ -72,6 +72,16 @@ bun src/cli/index.ts start -c tspm.yaml
 bun src/cli/index.ts start -c examples/config/app.basic.yaml
 ```
 
+### Rust Crash & Respawn Test
+
+Demonstrate process resilience and restart limits using a Rust application:
+
+```bash
+bun run example:rust
+```
+
+This example compiles a simple Rust HTTP server, starts it, crashes it repeatedly, and verifies that TSPM stops restarting it after `maxRestarts` is reached.
+
 ### Basic Commands
 
 ```bash

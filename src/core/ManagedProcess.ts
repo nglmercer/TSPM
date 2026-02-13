@@ -597,8 +597,21 @@ export class ManagedProcess {
     log.info(`${APP_CONSTANTS.LOG_PREFIX} Process ${name} exited with code ${exitCode}`);
     
     if (this.config.autorestart !== false) {
+      const maxRestarts = this.config.maxRestarts ?? DEFAULT_PROCESS_CONFIG.maxRestarts;
+      
+      if (this.restartCount >= maxRestarts) {
+        log.warn(`${APP_CONSTANTS.LOG_PREFIX} Process ${name} reached max restarts (${maxRestarts}). Giving up.`);
+        this.setState(PROCESS_STATE.ERRORED);
+        return;
+      }
+
       this.restartCount++;
-      const delay = Math.min(TIMEOUTS.BASE_RESTART_DELAY * Math.pow(2, this.restartCount), TIMEOUTS.MAX_RESTART_DELAY); // Exponential backoff
+      
+      let delay = this.config.restartDelay;
+      if (delay === undefined) {
+        delay = Math.min(TIMEOUTS.BASE_RESTART_DELAY * Math.pow(2, this.restartCount), TIMEOUTS.MAX_RESTART_DELAY);
+      }
+      
       log.info(`${APP_CONSTANTS.LOG_PREFIX} Restarting ${name} in ${delay}ms...`);
       
       this.setState(PROCESS_STATE.RESTARTING);

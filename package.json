@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "bun run ./src/cli/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "example:rust": "bun run examples/spawn-rust.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
