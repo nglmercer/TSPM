@@ -1,8 +1,3 @@
-/**
- * Process manager module for TSPM
- * Manages multiple managed processes and their lifecycle
- */
-
 import type { ProcessConfig, ProcessStatus } from "./types";
 import { ManagedProcess } from "./ManagedProcess";
 
@@ -14,8 +9,13 @@ export class ProcessManager {
    * @param config Process configuration
    */
   addProcess(config: ProcessConfig): void {
-    const process = new ManagedProcess(config);
-    this.processes.set(config.name, process);
+    const instanceCount = config.instances || 1;
+    
+    for (let i = 0; i < instanceCount; i++) {
+        const process = new ManagedProcess(config, i);
+        const name = i > 0 ? `${config.name}-${i}` : config.name;
+        this.processes.set(name, process);
+    }
   }
 
   /**
@@ -29,13 +29,21 @@ export class ProcessManager {
 
   /**
    * Remove a process from management
-   * @param name Process name
+   * @param name Process name or base name (to remove all instances)
    */
   removeProcess(name: string): void {
     const process = this.processes.get(name);
     if (process) {
       process.stop();
       this.processes.delete(name);
+    } else {
+      // Check if it's a base name for multiple instances
+      for (const [procName, proc] of this.processes.entries()) {
+        if (procName === name || procName.startsWith(`${name}-`)) {
+          proc.stop();
+          this.processes.delete(procName);
+        }
+      }
     }
   }
 
@@ -74,9 +82,15 @@ export class ProcessManager {
 
   /**
    * Check if a process exists
-   * @param name Process name
+   * @param name Process name or base name
    */
   hasProcess(name: string): boolean {
-    return this.processes.has(name);
+    if (this.processes.has(name)) return true;
+    
+    for (const procName of this.processes.keys()) {
+      if (procName.startsWith(`${name}-`)) return true;
+    }
+    
+    return false;
   }
 }

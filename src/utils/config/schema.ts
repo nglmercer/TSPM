@@ -5,6 +5,11 @@
  */
 
 import { type } from "arktype";
+import { 
+  ErrorSeverityValues, 
+  type ErrorSeverity,
+  DEFAULT_PROCESS_CONFIG 
+} from './constants';
 
 /**
  * ArkType Schema for Process configuration
@@ -83,7 +88,7 @@ export interface ValidationError {
   /** Error message */
   message: string;
   /** Error severity */
-  severity: "error" | "warning";
+  severity: ErrorSeverity;
 }
 
 /**
@@ -116,7 +121,7 @@ export function validateProcessConfig(
     return result.map((error) => ({
       field: error.path.length > 0 ? `${prefix}.${error.path.join(".")}` : prefix,
       message: error.message,
-      severity: "error",
+      severity: ErrorSeverityValues.ERROR,
     }));
   }
 
@@ -136,7 +141,7 @@ export function validateConfig(config: unknown): ValidationResult {
     const errors: ValidationError[] = result.map((error) => ({
       field: error.path.join("."),
       message: error.message,
-      severity: "error",
+      severity: ErrorSeverityValues.ERROR,
     }));
 
     return {
@@ -157,7 +162,7 @@ export function validateConfig(config: unknown): ValidationResult {
         errors.push({
           field: `processes[${i}].name`,
           message: `Duplicate process name: ${proc.name}`,
-          severity: "error",
+          severity: ErrorSeverityValues.ERROR,
         });
       }
       processNames.add(proc.name);
@@ -203,9 +208,9 @@ export function applyDefaults(
  */
 export function normalizeConfig(config: TSPMConfig): TSPMConfig {
   const defaults: Partial<ProcessConfig> = {
-    autorestart: true,
-    maxRestarts: 10,
-    killTimeout: 5000,
+    autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
+    maxRestarts: DEFAULT_PROCESS_CONFIG.maxRestarts,
+    killTimeout: DEFAULT_PROCESS_CONFIG.killTimeout,
     ...config.defaults,
   };
 

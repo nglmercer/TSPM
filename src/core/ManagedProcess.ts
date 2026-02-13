@@ -1,19 +1,26 @@
-/**
- * Managed process module for TSPM
- * Handles individual process lifecycle, spawning, and monitoring
- */
-
 import { spawn, type Subprocess } from "bun";
 import type { ProcessConfig, ProcessStatus } from "./types";
+import { ENV_VARS } from "../utils/config/constants";
 
 export class ManagedProcess {
   private subprocess?: Subprocess;
   private config: ProcessConfig;
+  private instanceId: number;
   private restartCount = 0;
   private isManuallyStopped = false;
 
-  constructor(config: ProcessConfig) {
+  constructor(config: ProcessConfig, instanceId = 0) {
     this.config = config;
+    this.instanceId = instanceId;
+  }
+
+  /**
+   * Get formatted process name with instance ID
+   */
+  private get fullProcessName(): string {
+    return this.instanceId > 0 
+      ? `${this.config.name}-${this.instanceId}` 
+      : this.config.name;
   }
 
   /**
@@ -21,7 +28,8 @@ export class ManagedProcess {
    */
   async start(): Promise<void> {
     this.isManuallyStopped = false;
-    console.log(`[TSPM] Starting process: ${this.config.name}`);
+    const name = this.fullProcessName;
+    console.log(`[TSPM] Starting process: ${name} (instance: ${this.instanceId})`);
     
     const stdoutPath = this.config.stdout;
     const stderrPath = this.config.stderr;
@@ -34,7 +42,12 @@ export class ManagedProcess {
 
     this.subprocess = spawn({
       cmd: [this.config.script, ...(this.config.args || [])],
-      env: { ...process.env, ...this.config.env },
+      env: { 
+        ...process.env, 
+        ...this.config.env,
+        [ENV_VARS.PROCESS_NAME]: name,
+        [ENV_VARS.INSTANCE_ID]: this.instanceId.toString(),
+      },
       stdout: stdoutPath ? "pipe" : "inherit",
       stderr: stderrPath ? "pipe" : "inherit",
       onExit: (proc, exitCode, signalCode, error) => {
@@ -77,18 +90,19 @@ export class ManagedProcess {
     signalCode: number | null, 
     error: Error | undefined
   ): Promise<void> {
+    const name = this.fullProcessName;
     if (this.isManuallyStopped) return;
 
     if (error) {
-      console.error(`[TSPM] Process ${this.config.name} error: ${error.message}`);
+      console.error(`[TSPM] Process ${name} error: ${error.message}`);
     }
 
-    console.log(`[TSPM] Process ${this.config.name} exited with code ${exitCode}`);
+    console.log(`[TSPM] Process ${name} exited with code ${exitCode}`);
     
     if (this.config.autorestart !== false) {
       this.restartCount++;
       const delay = Math.min(1000 * Math.pow(2, this.restartCount), 30000); // Exponential backoff
-      console.log(`[TSPM] Restarting ${this.config.name} in ${delay}ms...`);
+      console.log(`[TSPM] Restarting ${name} in ${delay}ms...`);
       setTimeout(() => this.start(), delay);
     }
   }
@@ -97,10 +111,11 @@ export class ManagedProcess {
    * Stop the managed process
    */
   stop(): void {
+    const name = this.fullProcessName;
     this.isManuallyStopped = true;
     if (this.subprocess) {
       this.subprocess.kill();
-      console.log(`[TSPM] Stopped process: ${this.config.name}`);
+      console.log(`[TSPM] Stopped process: ${name}`);
     }
   }
 
@@ -110,7 +125,7 @@ export class ManagedProcess {
   getStatus(): ProcessStatus {
     const exitCode = this.subprocess?.exitCode;
     return {
-      name: this.config.name,
+      name: this.fullProcessName,
       pid: this.subprocess?.pid,
       killed: this.subprocess?.killed,
       exitCode: exitCode !== null ? exitCode : undefined,
@@ -122,5 +137,12 @@ export class ManagedProcess {
    */
   getConfig(): ProcessConfig {
     return this.config;
+  }
+
+  /**
+   * Get instance ID
+   */
+  getInstanceId(): number {
+    return this.instanceId;
   }
 }

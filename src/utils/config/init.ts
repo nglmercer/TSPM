@@ -11,7 +11,21 @@ import type { TSPMConfig, ProcessConfig } from './schema';
 import {
   DEFAULT_PROCESS_CONFIG,
   DEFAULT_CONFIG_FILES,
+  ConfigFormatValues,
+  type ConfigFormat,
 } from './constants';
+
+/**
+ * Template types for process configuration
+ */
+export const TemplateTypes = {
+  WEB: 'web',
+  API: 'api',
+  WORKER: 'worker',
+  CRON: 'cron',
+} as const;
+
+export type TemplateType = typeof TemplateTypes[keyof typeof TemplateTypes];
 
 /**
  * Options for initializing a config file
@@ -20,7 +34,7 @@ export interface InitConfigOptions {
   /** Directory to create the config in */
   directory?: string;
   /** Format to use (yaml or json) */
-  format?: 'yaml' | 'yml' | 'json' | 'jsonc';
+  format?: ConfigFormat;
   /** Force overwrite existing config */
   force?: boolean;
   /** Process name for sample config */
@@ -46,28 +60,28 @@ export interface InitResult {
 /**
  * Sample process configurations for different use cases
  */
-export const SAMPLE_PROCESSES: Record<string, Partial<ProcessConfig>> = {
-  web: {
+export const SAMPLE_PROCESSES: Record<TemplateType, Partial<ProcessConfig>> = {
+  [TemplateTypes.WEB]: {
     script: 'bun',
     args: ['run', 'src/index.ts'],
     env: { NODE_ENV: 'production', PORT: '3000' },
     autorestart: true,
     stdout: 'logs/app.log',
   },
-  api: {
+  [TemplateTypes.API]: {
     script: 'bun',
     args: ['run', 'src/server.ts'],
     env: { NODE_ENV: 'production', PORT: '4000' },
     autorestart: true,
     stdout: 'logs/api.log',
   },
-  worker: {
+  [TemplateTypes.WORKER]: {
     script: 'bun',
     args: ['run', 'src/worker.ts'],
     autorestart: true,
     stdout: 'logs/worker.log',
   },
-  cron: {
+  [TemplateTypes.CRON]: {
     script: 'bun',
     args: ['run', 'src/cron.ts'],
     cron: '0 * * * *',
@@ -75,6 +89,12 @@ export const SAMPLE_PROCESSES: Record<string, Partial<ProcessConfig>> = {
     stdout: 'logs/cron.log',
   },
 };
+
+/**
+ * Default script runner
+ */
+const DEFAULT_RUNNER = 'bun';
+const DEFAULT_RUN_ARG = 'run';
 
 /**
  * Create a sample TSPM configuration
@@ -93,18 +113,18 @@ export function createSampleConfig(options: InitConfigOptions = {}): TSPMConfig 
     processes: [
       {
         name: processName,
-        script: 'bun',
-        args: ['run', scriptPath],
+        script: DEFAULT_RUNNER,
+        args: [DEFAULT_RUN_ARG, scriptPath],
         env: {
           NODE_ENV: 'development',
           PORT: String(port),
         },
-        autorestart: true,
-        stdout: `logs/${processName}.log`,
+        autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
+        stdout: `${DEFAULT_PROCESS_CONFIG.logDir}/${processName}.log`,
       },
     ],
     defaults: {
-      autorestart: true,
+      autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
       maxRestarts: DEFAULT_PROCESS_CONFIG.maxRestarts,
     },
     logDir: DEFAULT_PROCESS_CONFIG.logDir,
@@ -123,34 +143,51 @@ export function createMultiProcessConfig(): TSPMConfig {
     processes: [
       {
         name: 'web-server',
-        script: 'bun',
-        args: ['run', 'src/server.ts'],
+        script: DEFAULT_RUNNER,
+        args: [DEFAULT_RUN_ARG, 'src/server.ts'],
         env: { PORT: '3000', NODE_ENV: 'production' },
-        autorestart: true,
-        stdout: 'logs/web-server.log',
+        autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
+        stdout: `${DEFAULT_PROCESS_CONFIG.logDir}/web-server.log`,
       },
       {
         name: 'api-server',
-        script: 'bun',
-        args: ['run', 'src/api.ts'],
+        script: DEFAULT_RUNNER,
+        args: [DEFAULT_RUN_ARG, 'src/api.ts'],
         env: { PORT: '4000', NODE_ENV: 'production' },
-        autorestart: true,
-        stdout: 'logs/api-server.log',
+        autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
+        stdout: `${DEFAULT_PROCESS_CONFIG.logDir}/api-server.log`,
       },
       {
         name: 'worker',
-        script: 'bun',
-        args: ['run', 'src/worker.ts'],
-        autorestart: true,
-        stdout: 'logs/worker.log',
+        script: DEFAULT_RUNNER,
+        args: [DEFAULT_RUN_ARG, 'src/worker.ts'],
+        autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
+        stdout: `${DEFAULT_PROCESS_CONFIG.logDir}/worker.log`,
       },
     ],
     defaults: {
-      autorestart: true,
+      autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
       maxRestarts: DEFAULT_PROCESS_CONFIG.maxRestarts,
     },
-    logDir: 'logs',
+    logDir: DEFAULT_PROCESS_CONFIG.logDir,
   };
+}
+
+/**
+ * Config file extension mapping
+ */
+const CONFIG_FILE_EXTENSIONS: Record<ConfigFormat, string> = {
+  [ConfigFormatValues.YAML]: '.yaml',
+  [ConfigFormatValues.YML]: '.yml',
+  [ConfigFormatValues.JSON]: '.json',
+  [ConfigFormatValues.JSONC]: '.jsonc',
+} as const;
+
+/**
+ * Get config file extension for format
+ */
+function getConfigExtension(format: ConfigFormat): string {
+  return CONFIG_FILE_EXTENSIONS[format] ?? CONFIG_FILE_EXTENSIONS[ConfigFormatValues.YAML];
 }
 
 /**
@@ -163,13 +200,14 @@ export function createMultiProcessConfig(): TSPMConfig {
 export async function initConfig(options: InitConfigOptions = {}): Promise<InitResult> {
   const {
     directory = process.cwd(),
-    format = 'yaml',
+    format = ConfigFormatValues.YAML,
     force = false,
     ...sampleOptions
   } = options;
 
-  // Determine config filename
-  const filename = format === 'json' ? 'tspm.jsonc' : `tspm.${format}`;
+  // Determine config filename using constants
+  const extension = getConfigExtension(format);
+  const filename = `tspm${extension}`;
   const configPath = resolve(directory, filename);
 
   // Check if file exists
@@ -219,8 +257,9 @@ export function findExistingConfig(directory: string = process.cwd()): string | 
  * @param format - Desired format
  * @returns Default filename
  */
-export function getDefaultFilename(format: 'yaml' | 'json' = 'yaml'): string {
-  return format === 'json' ? 'tspm.jsonc' : 'tspm.yaml';
+export function getDefaultFilename(format: ConfigFormat = ConfigFormatValues.YAML): string {
+  const extension = getConfigExtension(format);
+  return `tspm${extension}`;
 }
 
 /**
@@ -231,13 +270,14 @@ export function getDefaultFilename(format: 'yaml' | 'json' = 'yaml'): string {
  * @returns Process configuration
  */
 export function fromTemplate(
-  template: keyof typeof SAMPLE_PROCESSES,
+  template: TemplateType,
   overrides: Partial<ProcessConfig> = {}
 ): ProcessConfig {
   const base = SAMPLE_PROCESSES[template];
   
   if (!base) {
-    throw new Error(`Unknown template: ${template}. Available: ${Object.keys(SAMPLE_PROCESSES).join(', ')}`);
+    const availableTemplates = Object.values(TemplateTypes).join(', ');
+    throw new Error(`Unknown template: ${template}. Available: ${availableTemplates}`);
   }
 
   return {
@@ -284,7 +324,7 @@ export class ConfigBuilder {
     this.config = {
       processes: [],
       defaults: {
-        autorestart: true,
+        autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
         maxRestarts: DEFAULT_PROCESS_CONFIG.maxRestarts,
       },
     };
@@ -304,11 +344,11 @@ export class ConfigBuilder {
   addWebServer(name: string, port: number = 3000, scriptPath?: string): this {
     return this.addProcess({
       name,
-      script: 'bun',
-      args: ['run', scriptPath ?? `src/${name}.ts`],
+      script: DEFAULT_RUNNER,
+      args: [DEFAULT_RUN_ARG, scriptPath ?? `src/${name}.ts`],
       env: { PORT: String(port), NODE_ENV: 'production' },
-      autorestart: true,
-      stdout: `logs/${name}.log`,
+      autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
+      stdout: `${DEFAULT_PROCESS_CONFIG.logDir}/${name}.log`,
     });
   }
 
@@ -318,10 +358,10 @@ export class ConfigBuilder {
   addWorker(name: string, scriptPath?: string): this {
     return this.addProcess({
       name,
-      script: 'bun',
-      args: ['run', scriptPath ?? `src/${name}.ts`],
-      autorestart: true,
-      stdout: `logs/${name}.log`,
+      script: DEFAULT_RUNNER,
+      args: [DEFAULT_RUN_ARG, scriptPath ?? `src/${name}.ts`],
+      autorestart: DEFAULT_PROCESS_CONFIG.autorestart,
+      stdout: `${DEFAULT_PROCESS_CONFIG.logDir}/${name}.log`,
     });
   }
 
