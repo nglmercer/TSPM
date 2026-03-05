@@ -88,7 +88,7 @@ export function startApi(manager: ProcessManager, config: ApiConfig) {
                 
                 return new Response(JSON.stringify({ success: false, error: API_MESSAGES.NOT_FOUND }), { 
                     status: HTTP_STATUS.NOT_FOUND,
-                    headers: { [HTTP_CONTENT_TYPE.JSON]: HTTP_CONTENT_TYPE.JSON }
+                    headers: { 'Content-Type': HTTP_CONTENT_TYPE.JSON }
                 });
             }
         });

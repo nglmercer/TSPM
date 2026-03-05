@@ -29,7 +29,7 @@ export const DEFAULT_HOST = {
  * Default port numbers
  */
 export const DEFAULT_PORT = {
-  API: 3000,
+  API: 0,
   HTTP: 80,
   HTTPS: 443,
 } as const;
@@ -43,7 +43,7 @@ export const DEFAULT_PORT = {
  */
 export const API = {
   VERSION: 'v1',
-  DEFAULT_PORT: 3000,
+  DEFAULT_PORT: 0,
   DEFAULT_HOST: '0.0.0.0',
   TIMEOUT: 30000,
 } as const;
