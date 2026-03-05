@@ -1,61 +1,167 @@
-import { ConfigLoader, ProcessManager, ConfigValidationError } from "./src/core";
+/**
+ * TSPM - TypeScript Process Manager
+ * 
+ * A modern, feature-rich process manager for Node.js and Bun applications.
+ * TSPM is a PM2 alternative written entirely in TypeScript.
+ * 
+ * @module tspm
+ */
 
-async function main() {
-  const arg = process.argv[2];
+// Re-export everything from core
+// Note: We export core first, then selectively export utils to avoid conflicts
+export * from './src/core';
 
-  // Handle 'init' command
-  if (arg === "init") {
-    const format = (process.argv[3] as "yaml" | "json") || "yaml";
-    try {
-      await ConfigLoader.init({ format });
-      console.log("[TSPM] Workspace initialized successfully.");
-    } catch (error) {
-      console.error(`[TSPM] Failed to initialize: ${error}`);
-      process.exit(1);
-    }
-    return;
-  }
+// Re-export utilities (selective to avoid PROCESS_STATE conflict)
+export {
+  APP,
+  DEFAULT_HOST,
+  DEFAULT_PORT,
+  API,
+  API_MESSAGES,
+  API_ENDPOINTS,
+  HTTP_METHODS,
+  HTTP_STATUS,
+  HTTP_CONTENT_TYPE,
+  HTTP_HEADERS,
+  CONSOLE_PREFIX,
+  LOG_MESSAGES,
+  EVENT_TYPES,
+  RESTART_REASON,
+  STOP_REASON,
+  MONITORING_INTERVAL,
+  THRESHOLDS,
+  DEFAULT_PATHS,
+  FILE_EXTENSIONS,
+  createMessageFormatter,
+} from './src/utils/constants';
 
-  const configPath = arg || "tspm.yaml";
-  
-  console.log(`[TSPM] Loading config from ${configPath}...`);
-  
-  try {
-    const config = await ConfigLoader.load(configPath);
-    const manager = new ProcessManager();
-    
-    for (const procConfig of config.processes) {
-      manager.addProcess(procConfig);
-    }
-    
-    await manager.startAll();
-    
-    console.log("[TSPM] All processes started.");
+// Event system
+export {
+  EventEmitter,
+  EventTypeValues,
+  EventPriorityValues,
+  createEvent,
+  getDefaultEmitter,
+  createEventEmitter,
+  EventSubscription,
+  subscribe,
+} from './src/utils/events';
 
-    // Handle signals for graceful shutdown
-    process.on("SIGINT", () => {
-      console.log("\n[TSPM] Shutting down...");
-      manager.stopAll();
-      process.exit(0);
-    });
+export type {
+  EventType,
+  EventPriority,
+  BaseEvent,
+  ProcessStartEvent,
+  ProcessStopEvent,
+  ProcessRestartEvent,
+  ProcessExitEvent,
+  ProcessErrorEvent,
+  ProcessStateChangeEvent,
+  InstanceAddEvent,
+  InstanceRemoveEvent,
+  InstanceHealthChangeEvent,
+  MetricsUpdateEvent,
+  CpuHighEvent,
+  MemoryHighEvent,
+  SystemStartEvent,
+  SystemStopEvent,
+  SystemErrorEvent,
+  ConfigReloadEvent,
+  TSPMEvent,
+  EventListener,
+  EventListenerEntry,
+  EventEmitterOptions,
+  SystemEventType,
+  ConfigEventType,
+  MetricsEventType,
+} from './src/utils/events';
 
-    process.on("SIGTERM", () => {
-      console.log("\n[TSPM] Shutting down...");
-      manager.stopAll();
-      process.exit(0);
-    });
+// Health check system
+export {
+  HealthCheckManager,
+  HealthCheckRunner,
+  HealthCheckProtocolValues,
+  HealthStatusValues,
+  DEFAULT_HEALTH_CHECK,
+  createHealthCheckConfig,
+  parseHealthCheckUrl,
+} from './src/utils/healthcheck';
 
-  } catch (error) {
-    if (error instanceof ConfigValidationError) {
-      console.error(`[TSPM] Configuration validation failed:`);
-      error.validation.errors.forEach(err => {
-        console.error(`  - ${err.field}: ${err.message}`);
-      });
-    } else {
-      console.error(`[TSPM] Failed to start: ${error}`);
-    }
-    process.exit(1);
-  }
-}
+export type {
+  HealthCheckConfig,
+  HealthCheckResult,
+  HealthCheckOptions,
+  HealthCheckProtocol,
+  HealthStatus,
+} from './src/utils/healthcheck';
 
-main();
+// Logger
+export {
+  Logger,
+  LogManager,
+  LogLevelValues,
+  getLogger,
+  createLogger,
+  log,
+} from './src/utils/logger';
+
+export type {
+  LogLevel,
+  LogMetadata,
+  LogEntry,
+  LoggerOptions,
+} from './src/utils/logger';
+
+// Stats
+export {
+  getProcessStats,
+} from './src/utils/stats';
+
+export type {
+  ProcessStats,
+} from './src/utils/stats';
+
+// Monitoring service
+export {
+  MonitoringService,
+  DEFAULT_MONITORING_CONFIG,
+  getMonitoringService,
+  createMonitoringService,
+} from './src/utils/monitoring';
+
+export type {
+  MonitoringConfig,
+  ProcessMetrics,
+  ProcessMonitoringData,
+  MonitoringEventHandlers,
+  MonitoringServiceOptions,
+} from './src/utils/monitoring';
+
+// Load balancer
+export * from './src/utils/loadbalancer';
+
+export type {
+  LoadBalanceStrategy,
+} from './src/utils/loadbalancer';
+
+// Webhooks
+export {
+  WebhookService,
+  type WebhookConfig,
+} from './src/utils/webhooks';
+
+// Deployment
+export {
+  deploy,
+  validateDeploymentConfig,
+  type DeploymentResult,
+  type DeploymentOptions,
+} from './src/utils/deployment';
+
+// CLI exports (for programmatic usage)
+export { main, createProgram } from './src/cli';
+export * from './src/cli/commands';
+
+// Import for side-effects (initialization)
+import './src/utils/logger';
+import './src/utils/events';

@@ -22,6 +22,16 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   }
 }
 
+/**
+ * CLI program creator
+ */
+export { createProgram } from './program';
+
+/**
+ * CLI commands
+ */
+export * from './commands';
+
 // Run if executed directly
 if (import.meta.main) {
   main();

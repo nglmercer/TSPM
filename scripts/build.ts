@@ -42,11 +42,33 @@ console.log(`Building for ${targetOS} (${targetArch})...`);
 await mkdir(outputDir, { recursive: true });
 
 try {
-  // Run bun build
-  // utilizing Bun Shell for better command execution
+  // Build the CLI as a standalone executable
   await $`bun build --compile --minify --sourcemap ./src/cli/index.ts --outfile ${outputPath}`;
+  console.log(`✅ CLI build successful: ${outputPath}`);
   
-  console.log(`✅ Build successful: ${outputPath}`);
+  // Build the main package for Bun (since the project uses Bun APIs)
+  await $`bun build ./index.ts --outdir ${outputDir} --format esm --target bun`;
+  console.log(`✅ ESM build successful: ${outputDir}/index.js`);
+  
+  // Also build CommonJS version
+  await $`bun build ./index.ts --outdir ${outputDir} --format cjs --target bun`;
+  console.log(`✅ CJS build successful: ${outputDir}/index.cjs`);
+  
+  // Copy package.json to dist for npm publishing
+  await $`cp package.json ${outputDir}/package.json`;
+  console.log(`✅ package.json copied to dist`);
+  
+  // Generate declaration files using tsc
+  try {
+    await $`tsc --emitDeclarationOnly --declaration --outDir ${outputDir} --project tsconfig.build.json 2>/dev/null || echo "Type declarations skipped (tsconfig.build.json not found)"`;
+  } catch {
+    console.log("⚠️ Type declarations generation skipped");
+  }
+  
+  console.log(`\n🎉 Build completed successfully!`);
+  console.log(`   - CLI: ${outputPath}`);
+  console.log(`   - ESM: ${outputDir}/index.js`);
+  console.log(`   - CJS: ${outputDir}/index.cjs`);
   
 } catch (error) {
   console.error(`❌ Build failed:`, error);

@@ -1,16 +1,62 @@
 {
   "name": "tspm",
   "version": "1.0.0",
-  "module": "index.ts",
+  "description": "A modern, feature-rich process manager for Node.js and Bun applications",
+  "main": "./index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
   "type": "module",
-  "private": true,
+  "private": false,
   "bin": {
-    "tspm": "./src/cli/index.ts"
+    "tspm": "./cli/index.js"
   },
   "scripts": {
+    "build": "bun run scripts/build.ts",
+    "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
     "start": "bun run ./src/cli/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "prepublishOnly": "bun run build"
   },
+  "keywords": [
+    "process-manager",
+    "pm2",
+    "cluster",
+    "load-balancer",
+    "process-manager",
+    "typescript",
+    "bun"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nglmercer/tspm"
+  },
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "require": "./index.js",
+      "default": "./index.js"
+    },
+    "./core": {
+      "types": "./core/index.d.ts",
+      "import": "./core/index.js",
+      "require": "./core/index.js",
+      "default": "./core/index.js"
+    },
+    "./cli": {
+      "types": "./cli/index.d.ts",
+      "import": "./cli/index.js",
+      "require": "./cli/index.js",
+      "default": "./cli/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^25.2.3"

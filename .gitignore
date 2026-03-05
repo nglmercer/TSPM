@@ -6,6 +6,8 @@ out
 dist
 *.tgz
 *.log
+index.d.ts.map
+index.d.ts
 # code coverage
 coverage
 *.lcov
