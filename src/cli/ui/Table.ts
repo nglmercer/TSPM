@@ -12,9 +12,12 @@ export class CliTable {
   private table: Table.Table;
 
   constructor(options: TableOptions) {
+    // Ensure we have valid column widths
+    const colWidths = options.colWidths || options.head.map(() => 30);
+    
     this.table = new Table({
       head: options.head,
-      colWidths: options.colWidths,
+      colWidths: colWidths,
       chars: options.chars || {
         'top': '═', 'top-mid': '╤', 'top-left': '╔', 'top-right': '╗',
         'bottom': '═', 'bottom-mid': '╧', 'bottom-left': '╚', 'bottom-right': '╝',
@@ -45,7 +48,21 @@ export class CliTable {
  * Quick create and render a table
  */
 export function printTable(head: string[], rows: (string | number | boolean | null | undefined)[][]): void {
-  const table = new CliTable({ head });
-  table.push(...rows);
+  // Handle empty data case
+  if (!head || head.length === 0) {
+    log.info('No data to display');
+    return;
+  }
+  
+  // Calculate column widths based on content or use defaults
+  const colWidths = head.map(() => 30);
+  
+  const table = new CliTable({ head, colWidths });
+  
+  // Only push rows if we have data
+  if (rows && rows.length > 0) {
+    table.push(...rows);
+  }
+  
   table.render();
 }

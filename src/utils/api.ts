@@ -25,11 +25,12 @@ export interface ApiConfig {
 export function startApi(manager: ProcessManager, config: ApiConfig) {
     if (config.enabled === false) return;
 
-    const port = config.port || DEFAULT_PORT.API;
+    // Support port 0 for auto-assignment
+    const port = config.port === 0 ? 0 : (config.port || DEFAULT_PORT.API);
     const host = config.host || DEFAULT_HOST.ALL;
 
     try {
-        Bun.serve({
+        const server = Bun.serve({
             port,
             hostname: host,
             async fetch(req) {
@@ -92,7 +93,8 @@ export function startApi(manager: ProcessManager, config: ApiConfig) {
             }
         });
 
-        log.info(LOG_MESSAGES.API_STARTED(host, port));
+        const actualPort = server.port ?? port;
+        log.info(LOG_MESSAGES.API_STARTED(host, actualPort));
     } catch (e) {
         log.error(LOG_MESSAGES.API_FAILED(String(e)));
     }

@@ -1,6 +1,6 @@
 
 import { $ } from "bun";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 // Detect OS and Arch
@@ -8,7 +8,6 @@ const os = process.platform;
 const arch = process.arch;
 
 const validOS = ['linux', 'darwin', 'win32'];
-const validArch = ['x64', 'arm64'];
 
 if (!validOS.includes(os)) {
   console.error(`Unsupported OS: ${os}`);
@@ -27,46 +26,50 @@ const archMap: Record<string, string> = {
   'arm64': 'arm64'
 };
 
-
 const targetOS = osMap[os];
 const targetArch = archMap[arch] || arch;
 const extension = os === 'win32' ? '.exe' : '';
 
 const outputDir = "dist";
-const outputName = `tspm-${targetOS}-${targetArch}${extension}`;
-const outputPath = join(outputDir, outputName);
+const cliOutputName = `tspm-${targetOS}-${targetArch}${extension}`;
+const cliOutputPath = join(outputDir, cliOutputName);
 
 console.log(`Building for ${targetOS} (${targetArch})...`);
 
 // Ensure dist directory exists
 await mkdir(outputDir, { recursive: true });
 
+// Clean previous builds
 try {
-  // Build the CLI as a standalone executable
-  await $`bun build --compile --minify --sourcemap ./src/cli/index.ts --outfile ${outputPath}`;
-  console.log(`✅ CLI build successful: ${outputPath}`);
-  
-  // Build the main package for Bun (since the project uses Bun APIs)
+  await rm(join(outputDir, "index.js"), { force: true });
+  await rm(join(outputDir, "index.cjs"), { force: true });
+  await rm(join(outputDir, "cli"), { force: true, recursive: true });
+  await rm(join(outputDir, "core"), { force: true, recursive: true });
+  await rm(join(outputDir, "utils"), { force: true, recursive: true });
+} catch {}
+
+try {
+  // Build 1: Standalone CLI executable using bun build CLI
+  console.log('\n📦 Building standalone CLI executable...');
+  await $`bun build --compile --minify --sourcemap ./src/cli/index.ts --outfile ${cliOutputPath}`;
+  console.log(`✅ CLI build successful: ${cliOutputPath}`);
+
+  // Build 2: ESM module bundle using bun build CLI
+  console.log('\n📦 Building ESM module...');
   await $`bun build ./index.ts --outdir ${outputDir} --format esm --target bun`;
   console.log(`✅ ESM build successful: ${outputDir}/index.js`);
-  
-  // Also build CommonJS version
-  await $`bun build ./index.ts --outdir ${outputDir} --format cjs --target bun`;
+
+  // Build 3: CJS module bundle using bun build CLI
+  console.log('\n📦 Building CJS module...');
+  await $`bun build ./index.ts --outfile ${join(outputDir, 'index.cjs')} --format cjs --target bun`;
   console.log(`✅ CJS build successful: ${outputDir}/index.cjs`);
-  
-  // Copy package.json to dist for npm publishing
-  await $`cp package.json ${outputDir}/package.json`;
-  console.log(`✅ package.json copied to dist`);
-  
-  // Generate declaration files using tsc
-  try {
-    await $`tsc --emitDeclarationOnly --declaration --outDir ${outputDir} --project tsconfig.build.json 2>/dev/null || echo "Type declarations skipped (tsconfig.build.json not found)"`;
-  } catch {
-    console.log("⚠️ Type declarations generation skipped");
-  }
-  
+
+  // Copy package.json to dist
+  console.log('\n📦 Copying package.json...');
+  await $`cp package.json ${join(outputDir, 'package.json')}`;
+
   console.log(`\n🎉 Build completed successfully!`);
-  console.log(`   - CLI: ${outputPath}`);
+  console.log(`   - CLI: ${cliOutputPath}`);
   console.log(`   - ESM: ${outputDir}/index.js`);
   console.log(`   - CJS: ${outputDir}/index.cjs`);
   
