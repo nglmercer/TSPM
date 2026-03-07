@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TSPM | TypeScript Process Manager Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="dark">
+    <div id="app">
+      <!-- Sidebar Navigation -->
+      <nav class="sidebar">
+        <div class="sidebar-header">
+          <div class="logo">
+            <span class="logo-icon">T</span>
+            <span class="logo-text">TSPM</span>
+          </div>
+        </div>
+        <div class="nav-links">
+          <button class="nav-btn active" data-view="dashboard">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Dashboard</span>
+          </button>
+          <button class="nav-btn" data-view="processes">
+            <i data-lucide="cpu"></i>
+            <span>Processes</span>
+          </button>
+          <button class="nav-btn" data-view="terminal">
+            <i data-lucide="terminal"></i>
+            <span>Executor</span>
+          </button>
+          <button class="nav-btn" data-view="logs">
+            <i data-lucide="file-text"></i>
+            <span>Live Logs</span>
+          </button>
+        </div>
+        <div class="sidebar-footer">
+          <div class="system-status">
+            <div class="status-dot online"></div>
+            <span>System Online</span>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Main Content Area -->
+      <main class="content">
+        <!-- Topbar -->
+        <header class="topbar">
+          <div class="search-container">
+            <i data-lucide="search"></i>
+            <input
+              type="text"
+              placeholder="Search processes, logs, commands..."
+              id="global-search"
+            />
+          </div>
+          <div class="actions">
+            <button class="btn btn-secondary" id="refresh-all">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+            <button class="btn btn-primary" id="new-process">
+              <i data-lucide="plus"></i>
+              <span>New Process</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Dashboard View -->
+        <section id="view-dashboard" class="view active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-header">
+                <h3>Total Processes</h3>
+                <i data-lucide="layers"></i>
+              </div>
+              <div class="stat-value" id="stat-total">0</div>
+              <div class="stat-footer">
+                <span class="text-success"
+                  ><i data-lucide="arrow-up-right"></i> Stable</span
+                >
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">
+                <h3>Active CPU</h3>
+                <i data-lucide="activity"></i>
+              </div>
+              <div class="stat-value" id="stat-cpu">0%</div>
+              <div class="stat-footer">
+                <div class="progress-bar">
+                  <div class="progress" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">
+                <h3>Memory Used</h3>
+                <i data-lucide="database"></i>
+              </div>
+              <div class="stat-value" id="stat-mem">0MB</div>
+              <div class="stat-footer">
+                <span class="text-muted">Total allocated</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">
+                <h3>Uptime</h3>
+                <i data-lucide="clock"></i>
+              </div>
+              <div class="stat-value" id="stat-uptime">0h 0m</div>
+              <div class="stat-footer">
+                <span class="text-success">Node & Bun</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-title">
+            <h2>Running Processes</h2>
+            <div class="filter-group">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="online">Online</button>
+              <button class="filter-btn" data-filter="errored">Errored</button>
+            </div>
+          </div>
+
+          <div class="process-list" id="process-grid">
+            <!-- Process cards will be injected here -->
+            <div class="loading-state">
+              <i data-lucide="loader-2" class="spin"></i>
+              <p>Loading processes...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Processes View (List Table) -->
+        <section id="view-processes" class="view">
+          <div class="table-container card">
+            <table id="process-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>PID</th>
+                  <th>Instance</th>
+                  <th>Memory</th>
+                  <th>CPU</th>
+                  <th>Uptime</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Table rows will be injected here -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Terminal View -->
+        <section id="view-terminal" class="view">
+          <div class="terminal-container card">
+            <div class="terminal-header">
+              <div class="terminal-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="terminal-title">Bun Shell Executor</div>
+            </div>
+            <div class="terminal-output" id="terminal-out">
+              <p class="text-muted">Type a command and press Enter...</p>
+            </div>
+            <div class="terminal-input-area">
+              <span class="prompt">$</span>
+              <input
+                type="text"
+                id="terminal-input"
+                placeholder="bun run ./script.ts"
+                autofocus
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- Logs View -->
+        <section id="view-logs" class="view">
+          <div class="log-viewer-container card">
+            <div class="log-header">
+              <div class="log-controls">
+                <select id="log-process-select">
+                  <option value="all">Global Logs</option>
+                </select>
+                <button class="btn-icon" id="clear-logs" title="Clear logs">
+                  <i data-lucide="trash-2"></i>
+                </button>
+                <button
+                  class="btn-icon"
+                  id="toggle-autoscroll"
+                  title="Toggle autoscroll"
+                >
+                  <i data-lucide="arrow-down"></i>
+                </button>
+              </div>
+              <div class="log-search">
+                <i data-lucide="search"></i>
+                <input type="text" placeholder="Filter log messages..." />
+              </div>
+            </div>
+            <div class="log-content" id="log-output">
+              <!-- Logs will stream here -->
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="modal-process">
+      <div class="modal-content card animate-in">
+        <div class="modal-header">
+          <h2>New Process Configuration</h2>
+          <button class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="add-process-form">
+            <div class="form-group">
+              <label>Process Name</label>
+              <input type="text" name="name" placeholder="my-app" required />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Script Path</label>
+                <input
+                  type="text"
+                  name="script"
+                  placeholder="./index.ts"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label>Interpreter</label>
+                <select name="interpreter">
+                  <option value="bun">Bun</option>
+                  <option value="node">Node</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Instances</label>
+                <input type="number" name="instances" value="1" min="1" />
+              </div>
+              <div class="form-group">
+                <label>Namespace</label>
+                <input type="text" name="namespace" placeholder="default" />
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary btn-close-modal">Cancel</button>
+          <button class="btn btn-primary" type="submit" form="add-process-form">
+            Spawn Process
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

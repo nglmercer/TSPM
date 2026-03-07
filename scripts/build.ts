@@ -68,6 +68,10 @@ try {
   console.log('\n📦 Copying package.json...');
   await $`cp package.json ${join(outputDir, 'package.json')}`;
 
+  // Copy web/public to dist for production web serving
+  console.log('\n📦 Copying web assets...');
+  await $`cp -r src/web/public ${join(outputDir, 'public')}`;
+
   console.log(`\n🎉 Build completed successfully!`);
   console.log(`   - CLI: ${cliOutputPath}`);
   console.log(`   - ESM: ${outputDir}/index.js`);

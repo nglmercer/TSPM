@@ -25,7 +25,8 @@ import {
   prettylistCommand,
   serveCommand,
   reportCommand,
-  deployCommand
+  deployCommand,
+  webCommand
 } from './commands';
 
 /**
@@ -289,6 +290,20 @@ export function createProgram(): Command {
         repo: options.repo,
         localPath: options.local,
         verbose: options.verbose,
+      });
+    });
+
+  // Web command
+  program
+    .command('dashboard')
+    .alias('web')
+    .description('Start the TSPM Web Dashboard')
+    .option('-p, --port <number>', 'Port to listen on (default: 3000)', '3000')
+    .option('-h, --host <host>', 'Host to listen on (default: 0.0.0.0)', '0.0.0.0')
+    .action((options) => {
+      webCommand({
+        port: parseInt(options.port, 10),
+        host: options.host,
       });
     });
 
