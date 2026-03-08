@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
-import type { DumpProcess, Profile, ToastMessage } from '../types';
+import type { DumpProcess, Profile } from '../types';
 import './tspm-modal';
 
 @customElement('tspm-profiles')
@@ -8,12 +8,10 @@ export class TspmProfiles extends LitElement {
     @state() private currentDump: DumpProcess[] = [];
     @state() private profiles: Profile[] = [];
     @state() private loading = false;
-    @state() private toast: ToastMessage | null = null;
     @state() private newProfileName = '';
     @state() private showNewForm = false;
     @state() private editingProcess: DumpProcess | null = null;
     @state() private showEditModal = false;
-
 
     override connectedCallback() {
         super.connectedCallback();
@@ -79,26 +77,6 @@ export class TspmProfiles extends LitElement {
         finally { this.loading = false; }
     }
 
-    public async _patchInDump(name: string, patch: Partial<DumpProcess>) {
-        this.loading = true;
-        try {
-            const res = await fetch(`/api/v1/dump/${encodeURIComponent(name)}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(patch)
-            });
-            const d = await res.json();
-            if (d.success) {
-                this.currentDump = this.currentDump.map(p => p.name === name ? { ...p, ...patch, name } : p);
-                this._showToast(`Updated "${name}"`, true);
-                this.editingProcess = null;
-            } else {
-                this._showToast(d.error || 'Patch failed', false);
-            }
-        } catch { this._showToast('Network error', false); }
-        finally { this.loading = false; }
-    }
-
     // ─── Profile actions ──────────────────────────────────────────────────────
     private _saveProfile() {
         const label = this.newProfileName.trim();
@@ -143,10 +121,12 @@ export class TspmProfiles extends LitElement {
         this.dispatchEvent(new CustomEvent('refresh-required', { bubbles: true, composed: true }));
     }
 
-    // ─── Toast ────────────────────────────────────────────────────────────────
     private _showToast(msg: string, ok: boolean) {
-        this.toast = { msg, ok };
-        setTimeout(() => { this.toast = null; }, 3000);
+        this.dispatchEvent(new CustomEvent('show-notification', {
+            detail: { message: msg, type: ok ? 'success' : 'error' },
+            bubbles: true,
+            composed: true
+        }));
     }
 
     private _shortName(name: string): string {
@@ -230,19 +210,6 @@ export class TspmProfiles extends LitElement {
         }
         input[type="text"]:focus { outline: none; border-color: rgba(99,102,241,0.4); }
 
-        /* Edit modal - now using tspm-modal */
-
-        /* Toast */
-        .toast {
-            position: fixed; bottom: 2rem; right: 2rem; z-index: 99999;
-            padding: 0.75rem 1.25rem; border-radius: 12px; font-size: 0.9rem;
-            font-weight: 500; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-            animation: slideIn 0.3s ease;
-        }
-        .toast.ok  { background: #064e3b; color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
-        .toast.err { background: #450a0a; color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
-        @keyframes slideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-
         .empty { padding: 2rem; text-align: center; color: #475569; font-size: 0.88rem; }
 
         .spin { animation: spin 1s linear infinite; }
@@ -251,9 +218,6 @@ export class TspmProfiles extends LitElement {
 
     override render() {
         return html`
-            ${this.toast ? html`
-                <div class="toast ${this.toast.ok ? 'ok' : 'err'}">${this.toast.msg}</div>` : ''}
-
             <tspm-modal
                 .isOpen="${this.showEditModal}"
                 .editMode="${true}"

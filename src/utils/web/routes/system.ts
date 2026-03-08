@@ -39,6 +39,17 @@ export function registerSystemRoutes(router: Router) {
 
             const currentCwd = cwd || process.cwd();
 
+            // Color-test command for debugging
+            if (command === 'color-test') {
+                return Response.json({
+                    success: true,
+                    output: "\x1b[1;31mTSPM\x1b[0m \x1b[32mCOLOR\x1b[0m \x1b[34mTEST\x1b[0m \x1b[33mSUCCESSFUL\x1b[0m",
+                    error: "",
+                    exitCode: 0,
+                    cwd: currentCwd
+                });
+            }
+
             // Handle 'cd' command specially to track state on client
             if (command.startsWith('cd ') || command === 'cd') {
                 let targetDir = command.trim() === 'cd' ? (process.env.HOME || "/") : command.substring(3).trim();
@@ -72,11 +83,41 @@ export function registerSystemRoutes(router: Router) {
                 }
             }
 
+            // Command Processor: Force colors for common commands
+            let processedCommand = command;
+            const forceColorMap: Record<string, string> = {
+                'ls': 'ls --color=always',
+                'grep': 'grep --color=always',
+                'dir': 'dir --color=always',
+                'vdir': 'vdir --color=always',
+                'git': 'git -c color.ui=always',
+                'diff': 'diff --color=always',
+                'ip': 'ip -c',
+                'dmesg': 'dmesg --color=always'
+            };
+
+            const cmdMatch = command.match(/^([a-zA-Z0-9_-]+)/);
+            if (cmdMatch && cmdMatch[1]) {
+                const baseCmd = cmdMatch[1];
+                const forced = forceColorMap[baseCmd];
+                if (forced && !command.includes('--color') && !command.includes('-c color.ui')) {
+                    processedCommand = command.replace(baseCmd, forced);
+                }
+            }
+
             // Run other commands in a shell to support builtins, pipes, etc.
-            const proc = Bun.spawn(["sh", "-c", command], {
+            const proc = Bun.spawn(["sh", "-c", processedCommand], {
                 cwd: currentCwd,
                 stdout: "pipe",
-                stderr: "pipe"
+                stderr: "pipe",
+                env: {
+                    ...process.env,
+                    FORCE_COLOR: "1",
+                    TERM: "xterm-256color",
+                    COLORTERM: "truecolor",
+                    CLICOLOR_FORCE: "1",
+                    CLICOLOR: "1"
+                }
             });
 
             const [output, error] = await Promise.all([
@@ -166,5 +207,36 @@ export function registerSystemRoutes(router: Router) {
             success: true,
             data: events
         });
+    });
+
+    // Autocomplete endpoint
+    router.addRoute('POST', '/autocomplete', async (req) => {
+        try {
+            const { prefix = '', cwd = process.cwd() } = await req.json() as { prefix: string, cwd: string };
+            
+            // Basic path completion
+            let searchDir = cwd;
+            let filePrefix = prefix;
+
+            if (prefix.includes('/') || prefix.includes('\\')) {
+                const lastSep = Math.max(prefix.lastIndexOf('/'), prefix.lastIndexOf('\\'));
+                const pathPart = prefix.substring(0, lastSep + 1);
+                filePrefix = prefix.substring(lastSep + 1);
+                searchDir = isAbsolute(pathPart) ? pathPart : resolve(cwd, pathPart);
+            }
+
+            try {
+                const entries = await (await import("fs/promises")).readdir(searchDir, { withFileTypes: true });
+                const suggestions = entries
+                    .filter(e => e.name.startsWith(filePrefix))
+                    .map(e => e.name + (e.isDirectory() ? '/' : ''));
+                
+                return Response.json({ success: true, suggestions });
+            } catch (e) {
+                return Response.json({ success: true, suggestions: [] });
+            }
+        } catch (e: any) {
+            return Response.json({ success: false, error: e.message });
+        }
     });
 }

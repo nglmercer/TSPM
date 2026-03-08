@@ -95,6 +95,19 @@ export class TspmTopbar extends LitElement {
             aspect-ratio: 1;
         }
 
+        @media (max-width: 768px) {
+            :host {
+                padding: 1rem;
+            }
+            .btn span {
+                display: none;
+            }
+            .search-container {
+                width: auto;
+                flex: 1;
+            }
+        }
+
         @media (max-width: 640px) {
             .search-container {
                 display: none;
@@ -104,9 +117,14 @@ export class TspmTopbar extends LitElement {
 
     override render() {
         return html`
-            <div class="search-container">
-                <i data-lucide="search"></i>
-                <input type="text" placeholder="Search processes, logs, commands..." />
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="btn btn-secondary btn-icon" @click="${() => this.dispatchEvent(new CustomEvent('toggle-sidebar', { bubbles: true, composed: true }))}">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="search-container">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Search processes, logs, commands..." />
+                </div>
             </div>
 
             <div class="actions">

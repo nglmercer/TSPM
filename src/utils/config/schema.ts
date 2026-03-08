@@ -214,6 +214,10 @@ export const ProcessConfigSchema = type({
   'dotEnv?': 'string',
   /** Script to run before starting the process */
   'preStart?': 'string',
+  /** Script to run to install dependencies */
+  'install?': 'string',
+  /** Script to run to build the project */
+  'build?': 'string',
   /** Script to run after the process has started */
   'postStart?': 'string',
   /** Maximum memory in bytes before auto-restart (OOM) */
@@ -269,6 +273,357 @@ export const TSPMConfigSchema = type({
  * TSPM configuration type inferred from ArkType schema
  */
 export type TSPMConfig = typeof TSPMConfigSchema.infer;
+
+/**
+ * Form field configuration for web UI
+ */
+export interface FormFieldConfig {
+    name: string;
+    type: 'string' | 'number' | 'boolean' | 'string[]' | 'Record';
+    required: boolean;
+    label: string;
+    placeholder?: string;
+    description?: string;
+    defaultValue?: unknown;
+    options?: { value: string; label: string }[];
+    group?: string;
+}
+
+/**
+ * Get form fields for process configuration (client-friendly export)
+ * This returns a JSON-serializable array of form field configurations
+ * that can be used to generate forms on the web client
+ */
+export function getProcessConfigFormFields(): FormFieldConfig[] {
+    return [
+        // Basic Info
+        {
+            name: 'name',
+            type: 'string',
+            required: true,
+            label: 'Name',
+            placeholder: 'my-awesome-api',
+            description: 'Unique name for the process',
+            group: 'basic'
+        },
+        {
+            name: 'script',
+            type: 'string',
+            required: true,
+            label: 'Script, Command or Binary',
+            placeholder: './src/index.ts or bun run start',
+            description: 'Script or command to run',
+            group: 'basic'
+        },
+        {
+            name: 'args',
+            type: 'string[]',
+            required: false,
+            label: 'Arguments',
+            placeholder: '--port 8080 --debug',
+            description: 'Command line arguments (space-separated)',
+            group: 'basic'
+        },
+        {
+            name: 'interpreter',
+            type: 'string',
+            required: false,
+            label: 'Interpreter',
+            description: 'Interpreter to use',
+            options: [
+                { value: '', label: 'Auto-detect' },
+                { value: 'bun', label: 'Bun' },
+                { value: 'node', label: 'Node' },
+                { value: 'python', label: 'Python' },
+                { value: 'sh', label: 'Shell (sh)' },
+                { value: 'none', label: 'None (Binary)' }
+            ],
+            group: 'basic'
+        },
+        
+        // Runtime
+        {
+            name: 'instances',
+            type: 'number',
+            required: false,
+            label: 'Instances',
+            placeholder: '1',
+            description: 'Number of instances for clustering',
+            defaultValue: 1,
+            group: 'runtime'
+        },
+        {
+            name: 'cwd',
+            type: 'string',
+            required: false,
+            label: 'Working Directory',
+            placeholder: '/path/to/project',
+            description: 'Current working directory',
+            group: 'runtime'
+        },
+        {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            label: 'Namespace',
+            placeholder: 'production',
+            description: 'Process namespace/group',
+            group: 'runtime'
+        },
+        
+        // Restart Behavior
+        {
+            name: 'autorestart',
+            type: 'boolean',
+            required: false,
+            label: 'Auto-restart',
+            description: 'Automatically restart on exit',
+            defaultValue: true,
+            group: 'restart'
+        },
+        {
+            name: 'maxRestarts',
+            type: 'number',
+            required: false,
+            label: 'Max Restarts',
+            placeholder: '10',
+            description: 'Maximum restart attempts before giving up',
+            defaultValue: 10,
+            group: 'restart'
+        },
+        {
+            name: 'minRestartDelay',
+            type: 'number',
+            required: false,
+            label: 'Min Restart Delay (ms)',
+            placeholder: '100',
+            description: 'Minimum delay between restarts in ms',
+            defaultValue: 100,
+            group: 'restart'
+        },
+        {
+            name: 'maxRestartDelay',
+            type: 'number',
+            required: false,
+            label: 'Max Restart Delay (ms)',
+            placeholder: '30000',
+            description: 'Maximum delay between restarts in ms',
+            defaultValue: 30000,
+            group: 'restart'
+        },
+        {
+            name: 'minUptime',
+            type: 'number',
+            required: false,
+            label: 'Min Uptime (ms)',
+            placeholder: '0',
+            description: 'Minimum uptime in ms before considering restart successful',
+            defaultValue: 0,
+            group: 'restart'
+        },
+        
+        // Watch Mode
+        {
+            name: 'watch',
+            type: 'boolean',
+            required: false,
+            label: 'Watch Files',
+            description: 'Watch files for changes and restart',
+            defaultValue: false,
+            group: 'watch'
+        },
+        {
+            name: 'watchDelay',
+            type: 'number',
+            required: false,
+            label: 'Watch Delay (ms)',
+            placeholder: '100',
+            description: 'Debounce time for file changes',
+            defaultValue: 100,
+            group: 'watch'
+        },
+        {
+            name: 'ignoreWatch',
+            type: 'string[]',
+            required: false,
+            label: 'Ignore Watch Patterns',
+            placeholder: 'node_modules dist',
+            description: 'Patterns to ignore in watch mode (space-separated)',
+            group: 'watch'
+        },
+        
+        // Lifecycle Scripts
+        {
+            name: 'install',
+            type: 'string',
+            required: false,
+            label: 'Install Script',
+            placeholder: 'bun install',
+            description: 'Script to run to install dependencies',
+            group: 'lifecycle'
+        },
+        {
+            name: 'build',
+            type: 'string',
+            required: false,
+            label: 'Build Script',
+            placeholder: 'bun run build',
+            description: 'Script to run to build the project',
+            group: 'lifecycle'
+        },
+        {
+            name: 'preStart',
+            type: 'string',
+            required: false,
+            label: 'Pre-start Script',
+            placeholder: 'echo "Starting..."',
+            description: 'Script to run before starting the process',
+            group: 'lifecycle'
+        },
+        {
+            name: 'postStart',
+            type: 'string',
+            required: false,
+            label: 'Post-start Script',
+            placeholder: 'echo "Started!"',
+            description: 'Script to run after the process has started',
+            group: 'lifecycle'
+        },
+        
+        // Timeouts
+        {
+            name: 'killTimeout',
+            type: 'number',
+            required: false,
+            label: 'Kill Timeout (ms)',
+            placeholder: '5000',
+            description: 'Time to wait after stop signal before killing',
+            defaultValue: 5000,
+            group: 'timeouts'
+        },
+        {
+            name: 'listenTimeout',
+            type: 'number',
+            required: false,
+            label: 'Listen Timeout (ms)',
+            placeholder: '0',
+            description: 'Time to wait for app to be ready',
+            defaultValue: 0,
+            group: 'timeouts'
+        },
+        {
+            name: 'waitReady',
+            type: 'boolean',
+            required: false,
+            label: 'Wait for Ready',
+            description: 'Wait for ready signal from app before marking as started',
+            defaultValue: false,
+            group: 'timeouts'
+        },
+        
+        // Logging
+        {
+            name: 'stdout',
+            type: 'string',
+            required: false,
+            label: 'Stdout Log Path',
+            placeholder: 'logs/app.log',
+            description: 'Standard output log file path',
+            group: 'logging'
+        },
+        {
+            name: 'stderr',
+            type: 'string',
+            required: false,
+            label: 'Stderr Log Path',
+            placeholder: 'logs/error.log',
+            description: 'Standard error log file path',
+            group: 'logging'
+        },
+        {
+            name: 'combineLogs',
+            type: 'boolean',
+            required: false,
+            label: 'Combine Logs',
+            description: 'Combine stdout and stderr',
+            defaultValue: false,
+            group: 'logging'
+        },
+        {
+            name: 'mergeLogs',
+            type: 'boolean',
+            required: false,
+            label: 'Merge Logs',
+            description: 'Merge logs from all instances',
+            defaultValue: false,
+            group: 'logging'
+        },
+        {
+            name: 'logDateFormat',
+            type: 'string',
+            required: false,
+            label: 'Log Date Format',
+            placeholder: 'YYYY-MM-DD HH:mm:ss',
+            description: 'Log timestamp format',
+            group: 'logging'
+        },
+        
+        // Resources
+        {
+            name: 'maxMemory',
+            type: 'number',
+            required: false,
+            label: 'Max Memory (bytes)',
+            placeholder: '0',
+            description: 'Max memory in bytes before auto-restart (0 = disabled)',
+            defaultValue: 0,
+            group: 'resources'
+        },
+        {
+            name: 'nice',
+            type: 'number',
+            required: false,
+            label: 'Nice Value',
+            placeholder: '0',
+            description: 'Process priority (-20 to 19, lower = higher priority)',
+            group: 'resources'
+        },
+        
+        // Advanced
+        {
+            name: 'cron',
+            type: 'string',
+            required: false,
+            label: 'Cron Expression',
+            placeholder: '0 * * * *',
+            description: 'Execute as cron job',
+            group: 'advanced'
+        },
+        {
+            name: 'dotEnv',
+            type: 'string',
+            required: false,
+            label: 'Dotenv File',
+            placeholder: '.env',
+            description: 'Dotenv file path',
+            group: 'advanced'
+        },
+        {
+            name: 'lbStrategy',
+            type: 'string',
+            required: false,
+            label: 'Load Balancing Strategy',
+            description: 'Strategy for clustering',
+            options: [
+                { value: '', label: 'Default (Round Robin)' },
+                { value: 'round-robin', label: 'Round Robin' },
+                { value: 'least-connections', label: 'Least Connections' },
+                { value: 'weighted-round-robin', label: 'Weighted Round Robin' }
+            ],
+            group: 'advanced'
+        }
+    ];
+}
 
 
 /**

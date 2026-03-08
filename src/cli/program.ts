@@ -26,7 +26,9 @@ import {
   serveCommand,
   reportCommand,
   deployCommand,
-  webCommand
+  webCommand,
+  installCommand,
+  buildCommand
 } from './commands';
 
 /**
@@ -306,6 +308,22 @@ export function createProgram(): Command {
         host: options.host,
       });
     });
+
+  // Install command
+  program
+    .command('install')
+    .description('Install dependencies for a process')
+    .argument('<name>', 'Process name')
+    .option('-c, --config <file>', 'Configuration file path', 'tspm.yaml')
+    .action((name, options) => installCommand({ name, config: options.config }));
+
+  // Build command
+  program
+    .command('build')
+    .description('Build a process')
+    .argument('<name>', 'Process name')
+    .option('-c, --config <file>', 'Configuration file path', 'tspm.yaml')
+    .action((name, options) => buildCommand({ name, config: options.config }));
 
   return program;
 }

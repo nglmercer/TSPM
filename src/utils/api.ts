@@ -9,6 +9,7 @@ import {
   EVENT_TYPES
 } from "./constants";
 import { Router } from "./web/router";
+import { isCompiled, getEmbeddedAssets, getMimeType } from "../web/embeddedAssets";
 
 export interface ApiConfig {
     enabled?: boolean;
@@ -19,21 +20,92 @@ export interface ApiConfig {
 }
 
 /**
- * Get the correct path to the public directory
+ * Get the correct path to the public directory (for non-compiled mode only)
  */
 function getPublicDir(): string {
-    // Get the directory of this file (utils)
     const utilsDir = dirname(fileURLToPath(import.meta.url));
     
     // Check if we're in production (dist/utils) or development (src/utils)
-    // Production: dist/utils -> dist/public
-    // Development: src/utils -> src/web/public
     const isProduction = utilsDir.includes('/dist/') || utilsDir.includes('\\dist\\');
     
     if (isProduction) {
         return join(utilsDir, "..", "public");
     }
     return join(utilsDir, "..", "web", "public");
+}
+
+/**
+ * Create a static file handler that serves from embedded assets or filesystem
+ */
+function createStaticHandler(publicDir: string) {
+    const compiled = isCompiled();
+    const embeddedAssets = compiled ? getEmbeddedAssets() : null;
+
+    if (compiled && embeddedAssets && embeddedAssets.size > 0) {
+        log.info(`[TSPM Web] Serving ${embeddedAssets.size} embedded web assets`);
+        
+        // Log embedded file names for debugging
+        for (const [name] of embeddedAssets) {
+            log.debug(`[TSPM Web]   Embedded: ${name}`);
+        }
+
+        return async (filePath: string): Promise<Response | null> => {
+            // Try exact match first
+            let blob = embeddedAssets.get(filePath);
+            
+            // Try without leading path components (e.g., "index-hash.js" matches "index.js" request)
+            if (!blob) {
+                // For JS/CSS files, the bundler may produce hashed names like "index-q45a1mvp.js"
+                // Try to find a matching file by base name pattern
+                const ext = filePath.split('.').pop();
+                const baseName = filePath.replace(/\.[^.]+$/, '');
+                
+                for (const [name, b] of embeddedAssets) {
+                    // Match "index.js" to "index-q45a1mvp.js" style names
+                    const nameBase = name.replace(/-[a-z0-9]+\./, '.');
+                    if (nameBase === filePath) {
+                        blob = b;
+                        break;
+                    }
+                    // Also try direct name match
+                    if (name === filePath) {
+                        blob = b;
+                        break;
+                    }
+                }
+            }
+
+            if (blob) {
+                return new Response(blob, {
+                    headers: {
+                        "Content-Type": getMimeType(filePath),
+                        "Cache-Control": filePath.match(/\.(js|css|png|jpg|svg|woff2)$/)
+                            ? "public, max-age=31536000, immutable"
+                            : "no-cache"
+                    }
+                });
+            }
+
+            return null;
+        };
+    }
+
+    // Filesystem-based serving (development / non-compiled mode)
+    return async (filePath: string): Promise<Response | null> => {
+        const file = Bun.file(join(publicDir, filePath));
+        
+        if (await file.exists()) {
+            return new Response(file, {
+                headers: {
+                    "Cache-Control": filePath.match(/\.(js|css|png|jpg|svg|woff2)$/)
+                        ? "public, max-age=31536000, immutable"
+                        : "no-cache"
+                }
+            });
+        }
+
+        return null;
+    };
 }
 
 /**
@@ -44,26 +116,36 @@ export async function startApi(manager: ProcessManager, config: ApiConfig) {
 
     const port = config.port === 0 ? 0 : (config.port || DEFAULT_PORT.API || 3000);
     const host = config.host || DEFAULT_HOST.ALL;
-    let publicDir = getPublicDir();
-
-    // In development mode, bundle the frontend to a temporary directory
-    // This allows using Bun's bundling features (like .ts support) even if not "built"
-    const isDev = !publicDir.includes('/dist/') && !publicDir.includes('\\dist\\');
-    if (isDev) {
-        try {
-            const tempDir = join(process.cwd(), ".tspm", "web-dev");
-            log.debug(`[TSPM Web] Dev Mode: Bundling frontend to ${tempDir}...`);
-            await Bun.build({
-                entrypoints: [join(publicDir, "index.html")],
-                outdir: tempDir,
-                minify: false,
-                sourcemap: "inline"
-            });
-            publicDir = tempDir;
-        } catch (e) {
-            log.error(`[TSPM Web] Dev Mode bundling failed: ${e}`);
+    
+    const compiled = isCompiled();
+    let publicDir = '';
+    if (!compiled) {
+        publicDir = getPublicDir();
+        
+        // In development mode, bundle the frontend to a temporary directory
+        const isDev = !publicDir.includes('/dist/') && !publicDir.includes('\\dist\\');
+        if (isDev) {
+            try {
+                const tempDir = join(process.cwd(), ".tspm", "web-dev");
+                log.debug(`[TSPM Web] Dev Mode: Bundling frontend to ${tempDir}...`);
+                await Bun.build({
+                    entrypoints: [join(publicDir, "index.html")],
+                    outdir: tempDir,
+                    minify: false,
+                    sourcemap: "inline"
+                });
+                publicDir = tempDir;
+            } catch (e) {
+                log.error(`[TSPM Web] Dev Mode bundling failed: ${e}`);
+            }
         }
     }
+    // console.log({
+    //     compiled,
+    //     publicDir
+    // })
+    // Create the static file handler (works for both embedded and filesystem modes)
+    const serveStatic = createStaticHandler(publicDir);
 
     try {
         // Create router instance
@@ -93,25 +175,14 @@ export async function startApi(manager: ProcessManager, config: ApiConfig) {
                     return router.handleRequest(req);
                 }
 
-                // Native Bun static file serving (faster)
+                // Serve static files (from embedded assets or filesystem)
                 const filePath = path === "/" ? "index.html" : path.substring(1);
-                const file = Bun.file(join(publicDir, filePath));
-                
-                if (await file.exists()) {
-                    return new Response(file, {
-                        headers: {
-                            "Cache-Control": filePath.match(/\.(js|css|png|jpg|svg|woff2)$/) 
-                                ? "public, max-age=31536000, immutable" 
-                                : "no-cache"
-                        }
-                    });
-                }
+                const staticResponse = await serveStatic(filePath);
+                if (staticResponse) return staticResponse;
 
-                // SPA Fallback: serve index.html for other routes
-                const indexFile = Bun.file(join(publicDir, "index.html"));
-                if (await indexFile.exists()) {
-                    return new Response(indexFile);
-                }
+                // SPA Fallback: serve index.html
+                const indexResponse = await serveStatic("index.html");
+                if (indexResponse) return indexResponse;
 
                 return new Response("Not Found", { status: 404 });
             },
@@ -147,9 +218,8 @@ export async function startApi(manager: ProcessManager, config: ApiConfig) {
                 const statuses = manager.getStatuses();
                 const processesWithStats = statuses.map(status => {
                     const proc = manager.getProcess(status.name);
-                    // Trigger stats collection for each running process
                     if (proc && status.state === 'running') {
-                        proc.getStats().catch(() => {}); // Fire and forget
+                        proc.getStats().catch(() => {});
                     }
                     const stats = proc?.getLastStats();
                     return {

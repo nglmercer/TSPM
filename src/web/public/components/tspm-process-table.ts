@@ -140,7 +140,8 @@ export class TspmProcessTable extends LitElement {
     }
 
     private async _action(name: string, action: string) {
-        await fetch(`/api/v1/processes/${name}/${action}`, { method: 'POST' });
+        const encodedName = encodeURIComponent(name);
+        await fetch(`/api/v1/processes/${encodedName}/${action}`, { method: 'POST' });
         this.dispatchEvent(new CustomEvent('refresh-required', { bubbles: true, composed: true }));
     }
 

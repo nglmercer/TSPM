@@ -128,6 +128,8 @@ export class TspmProcessCard extends LitElement {
         .btn-icon.restart:hover { color: #818cf8; border-color: rgba(129, 140, 248, 0.3); }
         .btn-icon.stop:hover { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
         .btn-icon.start:hover { color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
+        .btn-icon.edit:hover { color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); }
+        .btn-icon.delete:hover { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
 
         .btn-icon i {
             width: 18px;
@@ -144,12 +146,24 @@ export class TspmProcessCard extends LitElement {
 
     private async action(type: string) {
         try {
-            const res = await fetch(`/api/v1/processes/${this.process.name}/${type}`, { method: 'POST' });
+            const encodedName = encodeURIComponent(this.process.name);
+            const res = await fetch(`/api/v1/processes/${encodedName}/${type}`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
                 this.dispatchEvent(new CustomEvent('refresh-required', { bubbles: true, composed: true }));
+            } else {
+                this.dispatchEvent(new CustomEvent('show-notification', {
+                    detail: { message: data.error || `Failed to ${type}`, type: 'error' },
+                    bubbles: true,
+                    composed: true
+                }));
             }
         } catch (err) {
+            this.dispatchEvent(new CustomEvent('show-notification', {
+                detail: { message: `Network error while trying to ${type}`, type: 'error' },
+                bubbles: true,
+                composed: true
+            }));
             console.error('Action failed', err);
         }
     }
@@ -178,15 +192,23 @@ export class TspmProcessCard extends LitElement {
                 </div>
 
                 <div class="actions">
+                    <button class="btn-icon start" title="Start" @click="${() => this.action('start')}" ?disabled="${p.state === 'running'}">
+                        <i data-lucide="play"></i>
+                    </button>
+                    <button class="btn-icon stop" title="Stop" @click="${() => this.action('stop')}" ?disabled="${p.state !== 'running'}">
+                        <i data-lucide="square"></i>
+                    </button>
                     <button class="btn-icon restart" title="Restart" @click="${() => this.action('restart')}">
                         <i data-lucide="refresh-ccw"></i>
                     </button>
-                    ${p.state === 'running' 
-                        ? html`<button class="btn-icon stop" title="Stop" @click="${() => this.action('stop')}"><i data-lucide="square"></i></button>`
-                        : html`<button class="btn-icon start" title="Start" @click="${() => this.action('start')}"><i data-lucide="play"></i></button>`
-                    }
                     <button class="btn-icon" title="Logs" @click="${() => this.dispatchEvent(new CustomEvent('view-logs', { detail: p.name, bubbles: true, composed: true }))}">
                         <i data-lucide="file-text"></i>
+                    </button>
+                    <button class="btn-icon edit" title="Edit Config" @click="${() => this.dispatchEvent(new CustomEvent('edit-process-config', { detail: p.name, bubbles: true, composed: true }))}">
+                        <i data-lucide="edit"></i>
+                    </button>
+                    <button class="btn-icon delete" title="Delete Process" @click="${() => this.dispatchEvent(new CustomEvent('delete-process', { detail: p.name, bubbles: true, composed: true }))}">
+                        <i data-lucide="trash-2"></i>
                     </button>
                 </div>
             </div>

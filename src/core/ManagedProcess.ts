@@ -5,7 +5,7 @@ import {
   ENV_VARS, 
   WATCH_CONFIG, 
   DEFAULT_PROCESS_CONFIG, 
-  PROCESS_STATE, 
+  ProcessStateValues, 
   LOG_TYPE, 
   STOP_REASON, 
   RESTART_REASON,
@@ -67,7 +67,7 @@ export class ManagedProcess {
   private isManuallyStopped = false;
   private isReady = false;
   private lastStats: ProcessStats | null = null;
-  private currentState: ProcessState = PROCESS_STATE.STOPPED;
+  private currentState: ProcessState = ProcessStateValues.STOPPED;
   private eventEmitter: EventEmitter;
   private startedAt?: number;
   private watcher?: FSWatcher;
@@ -104,24 +104,19 @@ export class ManagedProcess {
     }
 
     // Update state
-    this.setState(PROCESS_STATE.STARTING);
+    this.setState(ProcessStateValues.STARTING);
     
+    // 0. Build & Install scripts if defined
+    if (this.config.install) {
+      await this.runScript('install', this.config.install);
+    }
+    if (this.config.build) {
+      await this.runScript('build', this.config.build);
+    }
+
     // 1. Run preStart script if defined
     if (this.config.preStart) {
-      log.info(`${APP_CONSTANTS.LOG_PREFIX} Running preStart script for ${name}: ${this.config.preStart}`);
-      try {
-        const preStartResult = spawn({
-          cmd: ["sh", "-c", this.config.preStart],
-          cwd: this.config.cwd,
-          env: { ...process.env, ...this.config.env },
-        });
-        await preStartResult.exited;
-        if (preStartResult.exitCode !== 0) {
-          log.warn(`${APP_CONSTANTS.LOG_PREFIX} preStart script for ${name} failed with code ${preStartResult.exitCode}`);
-        }
-      } catch (e) {
-        log.error(`${APP_CONSTANTS.LOG_PREFIX} Error running preStart for ${name}: ${e}`);
-      }
+      await this.runScript('preStart', this.config.preStart);
     }
 
     log.info(`${APP_CONSTANTS.LOG_PREFIX} Starting process: ${name} (instance: ${this.instanceId})`);
@@ -171,42 +166,79 @@ export class ManagedProcess {
     const cmd = [...(this.config.args || [])];
     let interpreter = this.config.interpreter;
     let script = this.config.script;
+    let cwd = this.config.cwd;
 
-    // Logic to determine what to run
+    // Fix CWD if it points to a file instead of a directory
+    if (cwd) {
+      try {
+        const file = Bun.file(cwd);
+        const stat = await file.stat();
+        // If it's not a directory (Bun 1.0.x stat doesn't have isDirectory, but we can check size or use Node fs)
+        // Actually, let's use Node's fs for reliable directory check
+        const { statSync } = require('node:fs');
+        const s = statSync(cwd);
+        if (!s.isDirectory()) {
+          const { dirname } = require('node:path');
+          cwd = dirname(cwd);
+          log.warn(`${APP_CONSTANTS.LOG_PREFIX} CWD was a file, using parent directory: ${cwd}`);
+        }
+      } catch (e) {
+        log.error(`${APP_CONSTANTS.LOG_PREFIX} Error checking CWD: ${e}`);
+      }
+    }
+
+    // Determine interpreter and command
     if (!interpreter) {
       // Use bun as default interpreter for JS/TS scripts if not explicitly provided
       if (script.endsWith(SCRIPT_EXTENSIONS.TYPESCRIPT) || script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
         interpreter = APP_CONSTANTS.DEFAULT_INTERPRETER;
         cmd.unshift(script);
         
-        // For Bun source maps
         env[BUN_ENV_VARS.VERBOSE_SOURCE_MAPS] = "true";
-        
         if (script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
           env[NODE_ENV_VARS.NODE_OPTIONS] = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
         }
+      } else if (script.includes(' ')) {
+        // Command string: "bun run start"
+        interpreter = 'sh';
+        cmd.unshift('-c', script);
       } else {
-        // If no interpreter and not a JS/TS script, check if it's a complex command
-        if (script.includes(' ') && !script.startsWith('./') && !script.startsWith('/')) {
-            // It looks like a command string e.g. "bun run start"
-            interpreter = 'sh';
-            cmd.unshift('-c', script);
-        } else {
-            // It's likely a binary or script we can execute directly
-            interpreter = script;
-        }
+        // Binary or script
+        interpreter = script;
+      }
+    } else if (interpreter === 'sh' || interpreter === 'bash') {
+      // For shell interpreters, if script has spaces, use -c
+      if (script.includes(' ')) {
+        cmd.unshift('-c', script);
+      } else {
+        cmd.unshift(script);
       }
     } else if (interpreter === 'none') {
-        // Explicitly no interpreter, run script directly
-        interpreter = script;
+      // Run script directly as binary
+      interpreter = script;
     } else {
-        // Use provided interpreter
+      // Standard interpreter (node, bun, python)
+      // If script has spaces, it might be a sub-command like "run start"
+      if (script.includes(' ')) {
+        const parts = script.split(' ');
+        const first = parts.shift()!;
+        if (first === interpreter) {
+          // script was "bun run start" and interpreter was "bun"
+          // result: interpreter="bun", cmd=["run", "start", ...args]
+          cmd.unshift(...parts);
+        } else {
+          // script was "run start" and interpreter was "bun"
+          cmd.unshift(...parts);
+          cmd.unshift(first);
+        }
+      } else {
         cmd.unshift(script);
+      }
     }
 
     this.subprocess = spawn({
       cmd: [interpreter, ...cmd],
-      cwd: this.config.cwd,
+      cwd,
       env,
       stdout: "pipe",
       stderr: "pipe",
@@ -223,26 +255,14 @@ export class ManagedProcess {
     this.startMemoryMonitoring();
     
     // Update state to running
-    this.setState(PROCESS_STATE.RUNNING);
+    this.setState(ProcessStateValues.RUNNING);
     
     // 4. Run postStart script if defined
     if (this.config.postStart) {
       // Run it in the background
-      (async () => {
-        try {
-          const postStartResult = spawn({
-            cmd: ["sh", "-c", this.config.postStart!],
-            cwd: this.config.cwd,
-            env: { ...env },
-          });
-          await postStartResult.exited;
-          if (postStartResult.exitCode !== 0) {
-            log.warn(`${APP_CONSTANTS.LOG_PREFIX} postStart script for ${name} failed with code ${postStartResult.exitCode}`);
-          }
-        } catch (e) {
-          log.error(`${APP_CONSTANTS.LOG_PREFIX} Error running postStart for ${name}: ${e}`);
-        }
-      })();
+      this.runScript('postStart', this.config.postStart).catch(e => {
+        log.error(`${APP_CONSTANTS.LOG_PREFIX} Background postStart error: ${e}`);
+      });
     }
 
     // Emit process start event
@@ -344,7 +364,7 @@ export class ManagedProcess {
     const name = this.fullProcessName;
     log.info(`${APP_CONSTANTS.LOG_PREFIX} Restarting process: ${name} (reason: ${reason})`);
     
-    this.setState(PROCESS_STATE.RESTARTING);
+    this.setState(ProcessStateValues.RESTARTING);
     
     // Emit restart event
     this.eventEmitter.emit(createEvent(
@@ -435,7 +455,7 @@ export class ManagedProcess {
     // Stop memory monitoring
     this.stopMemoryMonitoring();
     
-    this.setState(PROCESS_STATE.STOPPING);
+    this.setState(ProcessStateValues.STOPPING);
     
     if (this.watcher) {
       this.watcher.close();
@@ -467,7 +487,7 @@ export class ManagedProcess {
       });
     }
     
-    this.setState(PROCESS_STATE.STOPPED);
+    this.setState(ProcessStateValues.STOPPED);
   }
   
   /**
@@ -541,6 +561,24 @@ export class ManagedProcess {
    */
   getConfig(): ProcessConfig {
     return this.config;
+  }
+
+  /**
+   * Update the process configuration
+   * @param config New configuration
+   */
+  updateConfig(config: ProcessConfig): void {
+    const oldConfig = this.config;
+    this.config = config;
+    
+    // If watch settings changed, we might need to reset the watcher
+    if (this.watcher && (oldConfig.watch !== config.watch || oldConfig.watchDelay !== config.watchDelay)) {
+      this.watcher.close();
+      this.watcher = undefined;
+      if (config.watch) {
+        this.setupWatcher();
+      }
+    }
   }
 
   /**
@@ -645,6 +683,41 @@ export class ManagedProcess {
   }
 
   /**
+   * Run a custom script (install, build, preStart, etc.)
+   */
+  public async runScript(label: string, script: string): Promise<boolean> {
+    const name = this.fullProcessName;
+    log.info(`${APP_CONSTANTS.LOG_PREFIX} Running ${label} script for ${name}: ${script}`);
+    
+    try {
+      const result = spawn({
+        cmd: ["sh", "-c", script],
+        cwd: this.config.cwd,
+        env: { ...process.env, ...this.config.env },
+        // Stream output to logs if possible
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+
+      // Stream the setup script output to the log buffer so the user can see it
+      if (result.stdout) this.asyncStreamToBuffer(result.stdout, this.config.stdout ?? null, LOG_TYPE.STDOUT);
+      if (result.stderr) this.asyncStreamToBuffer(result.stderr, this.config.stderr ?? null, LOG_TYPE.STDERR);
+
+      await result.exited;
+      
+      if (result.exitCode !== 0) {
+        log.warn(`${APP_CONSTANTS.LOG_PREFIX} ${label} script for ${name} failed with code ${result.exitCode}`);
+        return false;
+      }
+      log.info(`${APP_CONSTANTS.LOG_PREFIX} ${label} script for ${name} completed successfully`);
+      return true;
+    } catch (e) {
+      log.error(`${APP_CONSTANTS.LOG_PREFIX} Error running ${label} for ${name}: ${e}`);
+      return false;
+    }
+  }
+
+  /**
    * Get in-memory log entries for this process
    * @param limit - Maximum number of entries to return (most recent first)
    */
@@ -715,13 +788,13 @@ export class ManagedProcess {
     });
     
     if (this.isManuallyStopped) {
-      this.setState(PROCESS_STATE.STOPPED);
+      this.setState(ProcessStateValues.STOPPED);
       return;
     }
 
     if (error) {
       log.error(`${APP_CONSTANTS.LOG_PREFIX} Process ${name} error: ${error.message}`);
-      this.setState(PROCESS_STATE.ERRORED);
+      this.setState(ProcessStateValues.ERRORED);
       
       // Emit error event
       this.eventEmitter.emit(createEvent(
@@ -744,7 +817,7 @@ export class ManagedProcess {
       
       if (this.restartCount >= maxRestarts) {
         log.warn(`${APP_CONSTANTS.LOG_PREFIX} Process ${name} reached max restarts (${maxRestarts}). Giving up.`);
-        this.setState(PROCESS_STATE.ERRORED);
+        this.setState(ProcessStateValues.ERRORED);
         return;
       }
 
@@ -757,7 +830,7 @@ export class ManagedProcess {
       
       log.info(`${APP_CONSTANTS.LOG_PREFIX} Restarting ${name} in ${delay}ms...`);
       
-      this.setState(PROCESS_STATE.RESTARTING);
+      this.setState(ProcessStateValues.RESTARTING);
       
       // Emit restart event
       this.eventEmitter.emit(createEvent(
@@ -775,7 +848,7 @@ export class ManagedProcess {
       
       setTimeout(() => this.start(), delay);
     } else {
-      this.setState(PROCESS_STATE.STOPPED);
+      this.setState(ProcessStateValues.STOPPED);
     }
   }
 }

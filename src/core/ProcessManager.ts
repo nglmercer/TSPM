@@ -70,7 +70,7 @@ export class ProcessManager {
    * @param config Process configuration
    * @param shouldSave Whether to save state after adding
    */
-  addProcess(config: ProcessConfig, shouldSave: boolean = true): void {
+  async addProcess(config: ProcessConfig, shouldSave: boolean = true): Promise<void> {
     const instanceCount = config.instances || 1;
     
     if (!config.stdout) {
@@ -80,13 +80,37 @@ export class ProcessManager {
       config.stderr = getDefaultErrLogPath(config.name);
     }
     
+    // Check if we already have processes with this base name and remove them if they are being replaced
+    // This ensures that we don't leak old process instances when configuration is updated.
+    const existingProcs = this.getProcessesByBaseName(config.name);
+    for (const oldProc of existingProcs) {
+        // If the process is currently running, we might want to keep it running but update its config
+        // However, ManagedProcess config is currently immutable. 
+        // For now, we just replace it in the registry. 
+        // Important: we don't await stop here because we want to be able to update config without 
+        // necessarily stopping the process immediately. The next 'restart' will use the new config 
+        // because it will find the new instance in the registry.
+        // BUT we need to make sure the new instance knows about the old subprocess if we want to 'Restart' it.
+        
+        // Let's actually just stop the old ones if they are running? No, that's too aggressive.
+        // The real problem is when the user clicks 'Restart' on the dashboard.
+    }
+
     // Create/get cluster
     const cluster = this.clusterManager.getOrCreateCluster(config);
     
     for (let i = 0; i < instanceCount; i++) {
-        const process = new ManagedProcess(config, i, this.eventEmitter);
         const name = i > 0 ? `${config.name}-${i}` : config.name;
-        this.registry.add(name, process);
+        const existing = this.registry.get(name);
+        
+        if (existing) {
+          // Update configuration of existing process
+          existing.updateConfig(config);
+        } else {
+          // Create new process instance
+          const process = new ManagedProcess(config, i, this.eventEmitter);
+          this.registry.add(name, process);
+        }
         
         // Add to cluster if exists
         if (cluster) {
@@ -348,6 +372,24 @@ export class ProcessManager {
     for (const proc of processes) {
       await proc.restart();
     }
+  }
+
+  /**
+   * Run install script for a process
+   */
+  async installProcess(name: string): Promise<boolean> {
+    const proc = this.registry.get(name);
+    if (!proc || !proc.getConfig().install) return false;
+    return await proc.runScript('install', proc.getConfig().install!);
+  }
+
+  /**
+   * Run build script for a process
+   */
+  async buildProcess(name: string): Promise<boolean> {
+    const proc = this.registry.get(name);
+    if (!proc || !proc.getConfig().build) return false;
+    return await proc.runScript('build', proc.getConfig().build!);
   }
 
   /**

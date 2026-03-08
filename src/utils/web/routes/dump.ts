@@ -57,6 +57,11 @@ export function registerDumpRoutes(router: Router) {
         // Persist to disk
         PersistenceManager.save({ processes: body.processes });
 
+        // Update in-memory manager for each process
+        for (const proc of body.processes) {
+            await manager.addProcess(proc, false);
+        }
+
         return Response.json({
             success: true,
             message: `Dump updated with ${body.processes.length} process(es)`,
@@ -97,10 +102,36 @@ export function registerDumpRoutes(router: Router) {
             );
         }
 
-        // Merge the patch into the existing entry (name cannot be changed via patch)
-        const updated: ProcessConfig = { ...data.processes[idx], ...patch, name };
+        // Merge the patch into the existing entry
+        const oldName = name;
+        const newName = patch.name || oldName;
+
+        const updated: ProcessConfig = { ...data.processes[idx], ...patch };
+        
+        // If rename occurred
+        if (newName !== oldName) {
+            // Check if new name already exists elsewhere
+            const collisionIdx = data.processes.findIndex((p: any) => p.name === newName);
+            if (collisionIdx !== -1 && collisionIdx !== idx) {
+                return Response.json(
+                    { success: false, error: `Process with name "${newName}" already exists` },
+                    { status: HTTP_STATUS.BAD_REQUEST }
+                );
+            }
+
+            // Remove old process registration from manager before adding new one
+            try {
+                await manager.removeProcess(oldName);
+            } catch (e) {
+                // It might not be running or registered, which is fine for a dump-only rename
+            }
+        }
+
         data.processes[idx] = updated;
         PersistenceManager.save(data);
+
+        // Update in-memory manager registry with the new config (overwrites old index if name is same, or adds new one if renamed)
+        await manager.addProcess(updated, false);
 
         return Response.json({
             success: true,
@@ -111,6 +142,7 @@ export function registerDumpRoutes(router: Router) {
 
     // ─── DELETE /dump/:name ───────────────────────────────────────────────────
     // Remove a single process entry from dump.json by name.
+    // Also stops the process if it's currently running.
     router.addRoute('DELETE', '/dump/:name', async (req, params) => {
         const name = params?.['name'];
         if (!name) {
@@ -134,6 +166,14 @@ export function registerDumpRoutes(router: Router) {
         }
 
         PersistenceManager.save(data);
+
+        // Remove from manager (this also stops it)
+        try {
+            await manager.removeProcess(name);
+        } catch (e) {
+            // Log but don't fail the request if remove fails
+            console.error(`Failed to remove process "${name}":`, e);
+        }
 
         return Response.json({
             success: true,
