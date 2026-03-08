@@ -147,6 +147,10 @@ export async function startApi(manager: ProcessManager, config: ApiConfig) {
                 const statuses = manager.getStatuses();
                 const processesWithStats = statuses.map(status => {
                     const proc = manager.getProcess(status.name);
+                    // Trigger stats collection for each running process
+                    if (proc && status.state === 'running') {
+                        proc.getStats().catch(() => {}); // Fire and forget
+                    }
                     const stats = proc?.getLastStats();
                     return {
                         ...status,

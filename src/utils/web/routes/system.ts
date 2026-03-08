@@ -6,11 +6,11 @@ import type { ProcessStatusWithStats } from "../types";
 import { eventLogger } from "../../logger";
 
 export function registerSystemRoutes(router: Router) {
-    const { manager } = (router as any).config;
+    const { manager } = router.config;
 
     // Status endpoint
     router.addRoute('GET', '/status', async () => {
-        const statuses = (router as any).getStatusesWithStats();
+        const statuses = router.getStatusesWithStats();
         return Response.json({
             success: true,
             data: {
@@ -101,7 +101,20 @@ export function registerSystemRoutes(router: Router) {
 
     // Get system stats
     router.addRoute('GET', '/stats', async () => {
-        const statuses = (router as any).getStatusesWithStats() as ProcessStatusWithStats[];
+        const statuses = router.getStatusesWithStats() as ProcessStatusWithStats[];
+        
+        // Trigger stats collection for running processes
+        for (const status of statuses) {
+            if (status.state === 'running') {
+                const proc = router.config.manager.getProcess(status.name);
+                if (proc) {
+                    proc.getStats().catch(() => {}); // Fire and forget
+                }
+            }
+        }
+        
+        // Get updated stats after collection
+        const updatedStatuses = router.getStatusesWithStats() as ProcessStatusWithStats[];
         
         let totalCpu = 0;
         let totalMem = 0;
@@ -109,7 +122,7 @@ export function registerSystemRoutes(router: Router) {
         let stopped = 0;
         let errored = 0;
 
-        statuses.forEach(p => {
+        updatedStatuses.forEach(p => {
             totalCpu += p.cpu;
             totalMem += p.memory;
             if (p.state === 'running') running++;
@@ -123,7 +136,7 @@ export function registerSystemRoutes(router: Router) {
                 cpu: Math.round(totalCpu),
                 memory: totalMem,
                 processes: {
-                    total: statuses.length,
+                    total: updatedStatuses.length,
                     running,
                     stopped,
                     errored
