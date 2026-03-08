@@ -104,6 +104,16 @@ export interface TerminalEntry {
     type: 'input' | 'output' | 'error';
 }
 
+/**
+ * Represents a single terminal instance/tab
+ */
+export interface TerminalInstance {
+    id: string;
+    title: string;
+    history: TerminalEntry[];
+    cwd: string;
+}
+
 // ============================================
 // API Response Types
 // ============================================
@@ -224,7 +234,10 @@ export function isProcessState(state: unknown): state is ProcessState {
  * Type guard to check if a value is a valid view type
  */
 export function isViewType(view: unknown): view is ViewType {
-    return ['dashboard', 'processes', 'terminal', 'logs'].includes(view as string);
+    if (typeof view !== 'string') return false;
+    // Allow terminal subpaths like terminal/123
+    if (view.startsWith('terminal')) return true;
+    return ['dashboard', 'processes', 'terminal', 'logs', 'profiles'].includes(view);
 }
 
 // ============================================

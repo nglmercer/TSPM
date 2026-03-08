@@ -167,4 +167,35 @@ export function registerSystemRoutes(router: Router) {
             data: events
         });
     });
+
+    // Autocomplete endpoint
+    router.addRoute('POST', '/autocomplete', async (req) => {
+        try {
+            const { prefix = '', cwd = process.cwd() } = await req.json() as { prefix: string, cwd: string };
+            
+            // Basic path completion
+            let searchDir = cwd;
+            let filePrefix = prefix;
+
+            if (prefix.includes('/') || prefix.includes('\\')) {
+                const lastSep = Math.max(prefix.lastIndexOf('/'), prefix.lastIndexOf('\\'));
+                const pathPart = prefix.substring(0, lastSep + 1);
+                filePrefix = prefix.substring(lastSep + 1);
+                searchDir = isAbsolute(pathPart) ? pathPart : resolve(cwd, pathPart);
+            }
+
+            try {
+                const entries = await (await import("fs/promises")).readdir(searchDir, { withFileTypes: true });
+                const suggestions = entries
+                    .filter(e => e.name.startsWith(filePrefix))
+                    .map(e => e.name + (e.isDirectory() ? '/' : ''));
+                
+                return Response.json({ success: true, suggestions });
+            } catch (e) {
+                return Response.json({ success: true, suggestions: [] });
+            }
+        } catch (e: any) {
+            return Response.json({ success: false, error: e.message });
+        }
+    });
 }

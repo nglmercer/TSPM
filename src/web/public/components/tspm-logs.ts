@@ -64,7 +64,7 @@ export class TspmLogs extends LitElement {
     private _setupListeners() {
         window.addEventListener('new-log', ((e: CustomEvent<ProcessLogEntry>) => {
             const entry = e.detail;
-            if (this.selectedProcess === 'all' || entry.processName === this.selectedProcess) {
+            if (this.selectedProcess === 'all' || entry?.processName === this.selectedProcess) {
                 this.logs = [...this.logs.slice(-999), entry];
                 setTimeout(() => this._scrollToBottom(), 50);
             }
