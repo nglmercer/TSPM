@@ -1,5 +1,6 @@
 import { LitElement, html, css, type PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { TerminalEntry } from '../types';
 
 @customElement('tspm-terminal')
@@ -81,10 +82,13 @@ export class TspmTerminal extends LitElement {
             overflow: hidden;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
             backdrop-filter: blur(10px);
+            font-family: 'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+            -webkit-font-smoothing: antialiased;
+            font-variant-ligatures: none;
         }
 
         .header {
-            background: rgba(26, 26, 26, 0.8);
+            background: rgba(40, 40, 40, 0.4);
             padding: 8px 16px;
             display: flex;
             align-items: center;
@@ -105,7 +109,7 @@ export class TspmTerminal extends LitElement {
             font-size: 0.7rem; 
             text-transform: uppercase;
             letter-spacing: 1px;
-            font-family: 'JetBrains Mono', monospace; 
+            font-weight: 500;
         }
 
         .actions {
@@ -135,22 +139,43 @@ export class TspmTerminal extends LitElement {
             flex: 1;
             padding: 1rem;
             overflow-y: auto;
-            font-family: 'JetBrains Mono', monospace;
+            color: #dcdcdc;
+            line-height: 1.4;
+            white-space: pre;
             font-size: 0.85rem;
-            color: #d1d5db;
-            line-height: 1.6;
-            white-space: pre-wrap;
             scrollbar-width: thin;
-            scroll-behavior: smooth;
         }
 
         .output::-webkit-scrollbar { width: 6px; }
         .output::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 
-        .line { margin-bottom: 4px; border-left: 2px solid transparent; padding-left: 8px; }
-        .line.input { color: #818cf8; font-weight: bold; border-left-color: #6366f1; }
-        .line.error { color: #f87171; border-left-color: #ef4444; }
-        .line.output { color: #9ca3af; }
+        .line { 
+            display: block; 
+            min-height: 1.45em;
+            margin: 0;
+            padding: 0;
+            white-space: pre;
+            font-family: 'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-variant-ligatures: none;
+        }
+        .line.input { 
+            color: #818cf8; 
+            font-weight: 600;
+        }
+        .line.error { color: #f87171; }
+        .line.output { color: #dcdcdc; }
+
+        /* ANSI Colors */
+        .ansi-black { color: #4b5563; }
+        .ansi-red { color: #ef4444; }
+        .ansi-green { color: #10b981; }
+        .ansi-yellow { color: #f59e0b; }
+        .ansi-blue { color: #3b82f6; }
+        .ansi-magenta { color: #8b5cf6; }
+        .ansi-cyan { color: #06b6d4; }
+        .ansi-white { color: #f3f4f6; }
+        .ansi-bold { font-weight: bold; }
+        .ansi-reset { color: inherit; font-weight: normal; }
 
         .input-area {
             display: flex;
@@ -176,9 +201,11 @@ export class TspmTerminal extends LitElement {
             color: #fff;
             outline: none;
             flex: 1;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
             caret-color: #6366f1;
+            padding: 0;
+            margin: 0;
         }
 
         .suggestions {
@@ -341,6 +368,58 @@ export class TspmTerminal extends LitElement {
         return last;
     }
 
+    private _ansiToHtml(text: string) {
+        if (!text) return '';
+        
+        // Escape HTML
+        let escaped = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        const ansiMap: Record<string, string> = {
+            '0': 'reset',
+            '1': 'bold',
+            '30': 'black', '31': 'red', '32': 'green', '33': 'yellow', '34': 'blue', '35': 'magenta', '36': 'cyan', '37': 'white',
+            '90': 'black', '91': 'red', '92': 'green', '93': 'yellow', '94': 'blue', '95': 'magenta', '96': 'cyan', '97': 'white'
+        };
+
+        const parts = escaped.split(/\x1b\[([0-9;]*)m/);
+        let currentClasses: Set<string> = new Set();
+        let html = '';
+
+        for (let i = 0; i < parts.length; i++) {
+            if (i % 2 === 0) {
+                // Text part
+                if (parts[i]) {
+                    if (currentClasses.size > 0) {
+                        html += `<span class="${Array.from(currentClasses).map(c => `ansi-${c}`).join(' ')}">${parts[i]}</span>`;
+                    } else {
+                        html += parts[i];
+                    }
+                }
+            } else {
+                // Code part
+                const codePart = parts[i];
+                if (!codePart) continue;
+                const codes = codePart.split(';');
+                for (const code of codes) {
+                    if (code === '0' || !code) {
+                        currentClasses.clear();
+                    } else {
+                        const style = ansiMap[code];
+                        if (style === 'reset') {
+                            currentClasses.clear();
+                        } else if (style) {
+                            currentClasses.add(style);
+                        }
+                    }
+                }
+            }
+        }
+        return html;
+    }
+
     private _onClose() {
         this.dispatchEvent(new CustomEvent('close-terminal', {
             detail: { id: this.terminalId },
@@ -369,7 +448,7 @@ export class TspmTerminal extends LitElement {
                 </div>
                 <div class="output">
                     ${this.history.map(line => html`
-                        <div class="line ${line.type}">${line.type === 'input' ? '$ ' : ''}${line.text}</div>
+                        <div class="line ${line.type}">${line.type === 'input' ? html`<span style="color: #6366f1; user-select: none;">$ </span>` : ''}${unsafeHTML(this._ansiToHtml(line.text))}</div>
                     `)}
                 </div>
                 <div class="input-area">
