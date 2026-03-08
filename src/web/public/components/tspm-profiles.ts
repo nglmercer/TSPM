@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import type { DumpProcess, Profile, ToastMessage } from '../types';
-import './tspm-dialog';
+import './tspm-modal';
 
 @customElement('tspm-profiles')
 export class TspmProfiles extends LitElement {
@@ -12,11 +12,8 @@ export class TspmProfiles extends LitElement {
     @state() private newProfileName = '';
     @state() private showNewForm = false;
     @state() private editingProcess: DumpProcess | null = null;
-    @state() private editJson = '';
-    @state() private editError = '';
-    @state() private showEditDialog = false;
+    @state() private showEditModal = false;
 
-    @query('tspm-dialog') private dialogEl!: HTMLElement & { open: boolean; close: () => void; };
 
     override connectedCallback() {
         super.connectedCallback();
@@ -82,7 +79,7 @@ export class TspmProfiles extends LitElement {
         finally { this.loading = false; }
     }
 
-    private async _patchInDump(name: string, patch: Partial<DumpProcess>) {
+    public async _patchInDump(name: string, patch: Partial<DumpProcess>) {
         this.loading = true;
         try {
             const res = await fetch(`/api/v1/dump/${encodeURIComponent(name)}`, {
@@ -132,26 +129,18 @@ export class TspmProfiles extends LitElement {
     // ─── Edit process ─────────────────────────────────────────────────────────
     private _startEdit(proc: DumpProcess) {
         this.editingProcess = proc;
-        this.editJson = JSON.stringify(proc, null, 2);
-        this.editError = '';
-        this.showEditDialog = true;
+        this.showEditModal = true;
     }
 
-    private _closeEditDialog() {
-        this.showEditDialog = false;
+    public _closeEditModal() {
+        this.showEditModal = false;
         this.editingProcess = null;
     }
 
-    private _applyEdit() {
-        try {
-            const parsed = JSON.parse(this.editJson) as DumpProcess;
-            if (!parsed.name || !parsed.script) throw new Error('"name" and "script" are required');
-            this._patchInDump(this.editingProcess!.name, parsed);
-            this.editError = '';
-            this._closeEditDialog();
-        } catch (e) {
-            this.editError = e instanceof Error ? e.message : 'Invalid JSON';
-        }
+    private _handleProcessUpdated() {
+        this._showToast(`Updated "${this.editingProcess?.name}"`, true);
+        this._fetchDump();
+        this.dispatchEvent(new CustomEvent('refresh-required', { bubbles: true, composed: true }));
     }
 
     // ─── Toast ────────────────────────────────────────────────────────────────
@@ -241,17 +230,7 @@ export class TspmProfiles extends LitElement {
         }
         input[type="text"]:focus { outline: none; border-color: rgba(99,102,241,0.4); }
 
-        /* Edit modal - now using reusable dialog */
-        .edit-error { color: #f87171; font-size: 0.8rem; margin-top: 0.5rem; }
-        .edit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1rem; }
-        textarea.edit-textarea {
-            width: 100%; box-sizing: border-box;
-            background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);
-            color: #e2e8f0; border-radius: 8px; padding: 0.75rem;
-            font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
-            resize: vertical; min-height: 240px;
-        }
-        textarea.edit-textarea:focus { outline: none; border-color: rgba(99,102,241,0.4); }
+        /* Edit modal - now using tspm-modal */
 
         /* Toast */
         .toast {
@@ -275,7 +254,15 @@ export class TspmProfiles extends LitElement {
             ${this.toast ? html`
                 <div class="toast ${this.toast.ok ? 'ok' : 'err'}">${this.toast.msg}</div>` : ''}
 
-            ${this.editingProcess && this.showEditDialog ? this._renderEditDialog() : ''}
+            <tspm-modal
+                .isOpen="${this.showEditModal}"
+                .editMode="${true}"
+                .processName="${this.editingProcess?.name || ''}"
+                .editProcess="${this.editingProcess}"
+                @process-added="${this._fetchDump}"
+                @process-updated="${this._handleProcessUpdated}"
+                @modal-close="${this._closeEditModal}"
+            ></tspm-modal>
 
             <h2>Process Profiles</h2>
 
@@ -378,29 +365,6 @@ export class TspmProfiles extends LitElement {
                     </div>
                 </div>
             </div>
-        `;
-    }
-
-    private _renderEditDialog() {
-        return html`
-            <tspm-dialog 
-                .open="${this.showEditDialog}" 
-                .dialogTitle="${'Edit process: ' + this._shortName(this.editingProcess!.name)}"
-                width="520px"
-                @dialog-close="${this._closeEditDialog}"
-            >
-                <textarea
-                    class="edit-textarea"
-                    .value="${this.editJson}"
-                    @input="${(e: Event) => this.editJson = (e.target as HTMLTextAreaElement).value}"
-                    spellcheck="false"
-                ></textarea>
-                ${this.editError ? html`<div class="edit-error">⚠ ${this.editError}</div>` : ''}
-                <div class="edit-actions">
-                    <button class="btn btn-ghost" @click="${this._closeEditDialog}">Cancel</button>
-                    <button class="btn btn-primary" @click="${this._applyEdit}">Apply Changes</button>
-                </div>
-            </tspm-dialog>
         `;
     }
 }

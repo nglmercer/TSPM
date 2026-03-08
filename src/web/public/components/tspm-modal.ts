@@ -1,13 +1,64 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import type { ProcessFormConfig } from '../types';
+import { customElement, property, state } from 'lit/decorators.js';
+import type { ProcessFormConfig, DumpProcess } from '../types';
 
 @customElement('tspm-modal')
 export class TspmModal extends LitElement {
     @property({ type: Boolean }) isOpen = false;
+    @property({ type: Boolean }) editMode = false;
+    @property({ type: String }) processName = '';
+    @property({ attribute: false }) editProcess: DumpProcess | null = null;
+    @state() private _formName = '';
+    @state() private _formScript = '';
+    @state() private _formInterpreter = '';
+    @state() private _formInstances = 1;
+    @state() private _formArgs = '';
+    @state() private _formNamespace = '';
 
-    open() { this.isOpen = true; }
-    close() { this.isOpen = false; }
+    open() { 
+        this.isOpen = true; 
+        this._resetForm();
+    }
+    
+    close() { 
+        this.isOpen = false; 
+        this.editMode = false;
+        this.processName = '';
+        this.editProcess = null;
+        this._resetForm();
+        this.dispatchEvent(new CustomEvent('modal-close', { bubbles: true, composed: true }));
+    }
+
+    private _resetForm() {
+        this._formName = '';
+        this._formScript = '';
+        this._formInterpreter = '';
+        this._formInstances = 1;
+        this._formArgs = '';
+        this._formNamespace = '';
+    }
+
+    private _populateForm() {
+        if (this.editProcess) {
+            this._formName = this.editProcess.name || '';
+            this._formScript = this.editProcess.script || '';
+            this._formInterpreter = this.editProcess.interpreter || '';
+            this._formInstances = typeof this.editProcess.instances === 'string' 
+                ? parseInt(this.editProcess.instances, 10) || 1 
+                : this.editProcess.instances || 1;
+            this._formArgs = this.editProcess.args ? this.editProcess.args.join(' ') : '';
+            this._formNamespace = this.editProcess.namespace || '';
+        }
+    }
+
+    override updated(changedProperties: Map<string, unknown>) {
+        if (changedProperties.has('isOpen') && this.isOpen && this.editProcess) {
+            this._populateForm();
+        }
+        if (changedProperties.has('editProcess') && this.editProcess && this.isOpen) {
+            this._populateForm();
+        }
+    }
 
     static override styles = css`
         :host {
@@ -132,44 +183,62 @@ export class TspmModal extends LitElement {
         }
 
         try {
-            const res = await fetch(`/api/v1/processes`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            });
+            let res: Response;
+            if (this.editMode && this.processName) {
+                // Edit mode - PATCH request
+                res = await fetch(`/api/v1/dump/${encodeURIComponent(this.processName)}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+            } else {
+                // Create mode - POST request
+                res = await fetch(`/api/v1/processes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+            }
             const data = await res.json();
             if (data.success) {
                 this.close();
-                this.dispatchEvent(new CustomEvent('process-added', { bubbles: true, composed: true }));
+                if (this.editMode) {
+                    this.dispatchEvent(new CustomEvent('process-updated', { bubbles: true, composed: true }));
+                } else {
+                    this.dispatchEvent(new CustomEvent('process-added', { bubbles: true, composed: true }));
+                }
             } else {
                 alert(data.error);
             }
         } catch (err) {
-            alert('Failed to spawn process');
+            alert(this.editMode ? 'Failed to update process' : 'Failed to spawn process');
         }
     }
 
     override render() {
+        const title = this.editMode ? 'Edit Process' : 'Process Configuration';
+        const submitLabel = this.editMode ? 'Save Changes' : 'Spawn Instance';
+        
         return html`
             <div class="overlay ${this.isOpen ? 'active' : ''}" @click="${(e: MouseEvent) => e.target === e.currentTarget && this.close()}">
                 <div class="modal">
                     <header>
-                        <h2>Process Configuration</h2>
+                        <h2>${title}</h2>
                         <button class="btn-close" @click="${this.close}">&times;</button>
                     </header>
                     <form @submit="${this._handleSubmit}">
                         <div class="form-group">
                             <label>Name</label>
-                            <input type="text" name="name" placeholder="my-awesome-api" required />
+                            <input type="text" name="name" placeholder="my-awesome-api" required .value="${this._formName}" @input="${(e: Event) => this._formName = (e.target as HTMLInputElement).value}" />
                         </div>
                         <div class="form-group">
                             <label>Script, Command or Binary</label>
-                            <input type="text" name="script" placeholder="./src/index.ts or bun run start" required />
+                            <input type="text" name="script" placeholder="./src/index.ts or bun run start" required .value="${this._formScript}" @input="${(e: Event) => this._formScript = (e.target as HTMLInputElement).value}" />
                         </div>
                         <div class="row">
                             <div class="form-group">
                                 <label>Interpreter</label>
-                                <select name="interpreter">
+                                <select name="interpreter" .value="${this._formInterpreter}" @change="${(e: Event) => this._formInterpreter = (e.target as HTMLSelectElement).value}">
                                     <option value="">Auto-detect</option>
                                     <option value="bun">Bun</option>
                                     <option value="node">Node</option>
@@ -180,22 +249,22 @@ export class TspmModal extends LitElement {
                             </div>
                             <div class="form-group">
                                 <label>Instances</label>
-                                <input type="number" name="instances" value="1" min="1" />
+                                <input type="number" name="instances" value="1" min="1" .value="${String(this._formInstances)}" @input="${(e: Event) => this._formInstances = parseInt((e.target as HTMLInputElement).value, 10) || 1}" />
                             </div>
                         </div>
                         <div class="row">
                             <div class="form-group">
                                 <label>Arguments (Space separated)</label>
-                                <input type="text" name="args" placeholder="--port 8080" />
+                                <input type="text" name="args" placeholder="--port 8080" .value="${this._formArgs}" @input="${(e: Event) => this._formArgs = (e.target as HTMLInputElement).value}" />
                             </div>
                             <div class="form-group">
                                 <label>Namespace</label>
-                                <input type="text" name="namespace" placeholder="production" />
+                                <input type="text" name="namespace" placeholder="production" .value="${this._formNamespace}" @input="${(e: Event) => this._formNamespace = (e.target as HTMLInputElement).value}" />
                             </div>
                         </div>
                         <footer>
                             <button type="button" class="btn btn-cancel" @click="${this.close}">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Spawn Instance</button>
+                            <button type="submit" class="btn btn-primary">${submitLabel}</button>
                         </footer>
                     </form>
                 </div>
@@ -203,4 +272,3 @@ export class TspmModal extends LitElement {
         `;
     }
 }
-
