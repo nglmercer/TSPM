@@ -14,6 +14,8 @@ export class TspmApp extends LitElement {
     @state() processes: ProcessStatus[] = [];
     @state() systemStats: SystemStats = { cpu: 0, memory: 0, uptime: 0 };
     @state() isOnline = false;
+    @state() sidebarCollapsed = false;
+    @state() sidebarActive = false; // For mobile toggle
     
     private socket?: WebSocket;
 
@@ -46,6 +48,20 @@ export class TspmApp extends LitElement {
         this.addEventListener('show-notification', ((e: CustomEvent<ToastOptions>) => {
             this.notifications.show(e.detail);
         }) as EventListener);
+
+        this.addEventListener('toggle-sidebar', () => {
+            if (window.innerWidth <= 768) {
+                this.sidebarActive = !this.sidebarActive;
+            } else {
+                this.sidebarCollapsed = !this.sidebarCollapsed;
+            }
+        });
+        
+        this.addEventListener('view-change', () => {
+            if (window.innerWidth <= 768) {
+                this.sidebarActive = false;
+            }
+        });
     }
 
     private async _handleEditProcess(name: string) {
@@ -146,7 +162,7 @@ export class TspmApp extends LitElement {
     static override styles = css`
         :host {
             display: grid;
-            grid-template-columns: 260px 1fr;
+            grid-template-columns: auto 1fr;
             height: 100vh;
             background: #0a0a0c;
             color: #e2e8f0;
@@ -156,7 +172,7 @@ export class TspmApp extends LitElement {
 
         @media (max-width: 768px) {
             :host {
-                grid-template-columns: 80px 1fr;
+                grid-template-columns: 1fr;
             }
             .view-container {
                 padding: 1rem;
@@ -164,12 +180,23 @@ export class TspmApp extends LitElement {
         }
 
         @media (max-width: 480px) {
-            :host {
-                grid-template-columns: 60px 1fr;
-            }
             .view-container {
                 padding: 0.75rem;
             }
+        }
+
+        .backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 90;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .backdrop.active {
+            display: block;
         }
 
         .main-content {
@@ -216,8 +243,12 @@ export class TspmApp extends LitElement {
             <tspm-sidebar 
                 .currentView="${this.currentView}" 
                 .isOnline="${this.isOnline}"
+                ?collapsed="${this.sidebarCollapsed}"
+                ?active="${this.sidebarActive}"
                 @view-change="${(e: CustomEvent<ViewChangeDetail>) => this.currentView = e.detail.view}"
             ></tspm-sidebar>
+
+            <div class="backdrop ${this.sidebarActive ? 'active' : ''}" @click="${() => this.sidebarActive = false}"></div>
             
             <main class="main-content">
                 <tspm-topbar 

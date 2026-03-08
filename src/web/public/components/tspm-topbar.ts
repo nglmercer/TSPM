@@ -95,6 +95,19 @@ export class TspmTopbar extends LitElement {
             aspect-ratio: 1;
         }
 
+        @media (max-width: 768px) {
+            :host {
+                padding: 1rem;
+            }
+            .btn span {
+                display: none;
+            }
+            .search-container {
+                width: auto;
+                flex: 1;
+            }
+        }
+
         @media (max-width: 640px) {
             .search-container {
                 display: none;
