@@ -214,6 +214,10 @@ export const ProcessConfigSchema = type({
   'dotEnv?': 'string',
   /** Script to run before starting the process */
   'preStart?': 'string',
+  /** Script to run to install dependencies */
+  'install?': 'string',
+  /** Script to run to build the project */
+  'build?': 'string',
   /** Script to run after the process has started */
   'postStart?': 'string',
   /** Maximum memory in bytes before auto-restart (OOM) */

@@ -144,6 +144,34 @@ export function registerProcessRoutes(router: Router) {
             }, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR });
         }
     });
+    
+    // Install dependencies
+    router.addRoute('POST', '/processes/:name/install', async (req, params) => {
+        const name = params?.['name'];
+        if (!name || !isValidProcessName(name)) {
+            return Response.json({ success: false, error: "Invalid process name" }, { status: HTTP_STATUS.BAD_REQUEST });
+        }
+        try {
+            const success = await manager.installProcess(name);
+            return Response.json({ success, message: success ? `Installed ${name}` : `Install script failed or not defined for ${name}` });
+        } catch (e: any) {
+            return Response.json({ success: false, error: e.message }, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR });
+        }
+    });
+
+    // Build project
+    router.addRoute('POST', '/processes/:name/build', async (req, params) => {
+        const name = params?.['name'];
+        if (!name || !isValidProcessName(name)) {
+            return Response.json({ success: false, error: "Invalid process name" }, { status: HTTP_STATUS.BAD_REQUEST });
+        }
+        try {
+            const success = await manager.buildProcess(name);
+            return Response.json({ success, message: success ? `Built ${name}` : `Build script failed or not defined for ${name}` });
+        } catch (e: any) {
+            return Response.json({ success: false, error: e.message }, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR });
+        }
+    });
 
     // Get all process logs combined (from in-memory buffers)
     router.addRoute('GET', '/logs', async (req) => {

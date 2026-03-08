@@ -351,6 +351,24 @@ export class ProcessManager {
   }
 
   /**
+   * Run install script for a process
+   */
+  async installProcess(name: string): Promise<boolean> {
+    const proc = this.registry.get(name);
+    if (!proc || !proc.getConfig().install) return false;
+    return await proc.runScript('install', proc.getConfig().install!);
+  }
+
+  /**
+   * Run build script for a process
+   */
+  async buildProcess(name: string): Promise<boolean> {
+    const proc = this.registry.get(name);
+    if (!proc || !proc.getConfig().build) return false;
+    return await proc.runScript('build', proc.getConfig().build!);
+  }
+
+  /**
    * Get in-memory logs for a process by name
    * @param name Process name or base name
    * @param limit Maximum entries to return

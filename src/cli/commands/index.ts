@@ -17,6 +17,8 @@ export * from './serve';
 export * from './report';
 export * from './deploy';
 export * from './web';
+export * from './install';
+export * from './build';
 
 import { startCommand } from './start';
 import { stopCommand } from './stop';
