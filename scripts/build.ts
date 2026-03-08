@@ -68,9 +68,10 @@ try {
   console.log('\n📦 Copying package.json...');
   await $`cp package.json ${join(outputDir, 'package.json')}`;
 
-  // Copy web/public to dist for production web serving
-  console.log('\n📦 Copying web assets...');
-  await $`cp -r src/web/public ${join(outputDir, 'public')}`;
+  // Build Web Dashboard using Bun's native HTML bundler
+  console.log('\n📦 Building Web Dashboard...');
+  await $`bun build src/web/public/index.html --minify --outdir ${join(outputDir, 'public')}`;
+  console.log(`✅ Web Dashboard build successful: ${outputDir}/public`);
 
   console.log(`\n🎉 Build completed successfully!`);
   console.log(`   - CLI: ${cliOutputPath}`);

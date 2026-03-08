@@ -39,12 +39,31 @@ function getPublicDir(): string {
 /**
  * Start the JSON API server and Web Dashboard using the Router engine
  */
-export function startApi(manager: ProcessManager, config: ApiConfig) {
+export async function startApi(manager: ProcessManager, config: ApiConfig) {
     if (config.enabled === false) return;
 
     const port = config.port === 0 ? 0 : (config.port || DEFAULT_PORT.API || 3000);
     const host = config.host || DEFAULT_HOST.ALL;
-    const publicDir = getPublicDir();
+    let publicDir = getPublicDir();
+
+    // In development mode, bundle the frontend to a temporary directory
+    // This allows using Bun's bundling features (like .ts support) even if not "built"
+    const isDev = !publicDir.includes('/dist/') && !publicDir.includes('\\dist\\');
+    if (isDev) {
+        try {
+            const tempDir = join(process.cwd(), ".tspm", "web-dev");
+            log.debug(`[TSPM Web] Dev Mode: Bundling frontend to ${tempDir}...`);
+            await Bun.build({
+                entrypoints: [join(publicDir, "index.html")],
+                outdir: tempDir,
+                minify: false,
+                sourcemap: "inline"
+            });
+            publicDir = tempDir;
+        } catch (e) {
+            log.error(`[TSPM Web] Dev Mode bundling failed: ${e}`);
+        }
+    }
 
     try {
         // Create router instance
@@ -69,8 +88,32 @@ export function startApi(manager: ProcessManager, config: ApiConfig) {
                     return success ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
                 }
 
-                // Use the router for API and static files
-                return router.handleRequest(req);
+                // Handle API requests
+                if (path.startsWith("/api/v1")) {
+                    return router.handleRequest(req);
+                }
+
+                // Native Bun static file serving (faster)
+                const filePath = path === "/" ? "index.html" : path.substring(1);
+                const file = Bun.file(join(publicDir, filePath));
+                
+                if (await file.exists()) {
+                    return new Response(file, {
+                        headers: {
+                            "Cache-Control": filePath.match(/\.(js|css|png|jpg|svg|woff2)$/) 
+                                ? "public, max-age=31536000, immutable" 
+                                : "no-cache"
+                        }
+                    });
+                }
+
+                // SPA Fallback: serve index.html for other routes
+                const indexFile = Bun.file(join(publicDir, "index.html"));
+                if (await indexFile.exists()) {
+                    return new Response(indexFile);
+                }
+
+                return new Response("Not Found", { status: 404 });
             },
             websocket: {
                 open(ws) {

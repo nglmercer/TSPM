@@ -57,29 +57,8 @@ export interface RouterConfig {
 // MIME Types
 // ============================================================================
 
-const MIME_TYPES: Record<string, string> = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript',
-    '.json': 'application/json',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.svg': 'image/svg+xml',
-    '.ico': 'image/x-icon',
-    '.woff': 'font/woff',
-    '.woff2': 'font/woff2',
-    '.ttf': 'font/ttf',
-    '.eot': 'application/vnd.ms-fontobject',
-    '.webp': 'image/webp',
-    '.md': 'text/markdown',
-    '.txt': 'text/plain',
-    '.xml': 'application/xml',
-    '.pdf': 'application/pdf',
-    '.zip': 'application/zip',
-    '.wasm': 'application/wasm',
-};
+// MIME types are handled automatically by Bun.file()
+
 
 // ============================================================================
 // Router Class
@@ -474,23 +453,14 @@ export class Router {
         }
 
         const filePath = join(this.config.publicDir, fileName);
+        const file = Bun.file(filePath);
         
-        try {
-            const file = Bun.file(filePath);
-            
-            if (await file.exists()) {
-                const ext = fileName.substring(fileName.lastIndexOf('.'));
-                const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-                
-                return new Response(file, {
-                    headers: {
-                        'Content-Type': contentType,
-                        'Cache-Control': this.getCacheControl(fileName)
-                    }
-                });
-            }
-        } catch (e) {
-            log.debug(`Static file not found: ${filePath}`);
+        if (await file.exists()) {
+            return new Response(file, {
+                headers: {
+                    'Cache-Control': this.getCacheControl(fileName)
+                }
+            });
         }
 
         return null;

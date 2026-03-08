@@ -6,7 +6,7 @@ import { APP_CONSTANTS } from "../../utils/config/constants";
 /**
  * Web command - Starts the TSPM Web Dashboard
  */
-export function webCommand(options: { port?: number; host?: string }): void {
+export async function webCommand(options: { port?: number; host?: string }): Promise<void> {
   log.info(`${APP_CONSTANTS.LOG_PREFIX} Initializing Web Dashboard...`);
   
   const manager = new ProcessManager();
@@ -14,7 +14,7 @@ export function webCommand(options: { port?: number; host?: string }): void {
   // Start monitoring so we have stats
   manager.startMonitoring();
   
-  startApi(manager, {
+  await startApi(manager, {
     enabled: true,
     port: options.port || 3000,
     host: options.host || '0.0.0.0',
