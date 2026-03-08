@@ -178,6 +178,10 @@ export class TspmApp extends LitElement {
                         class="view ${this.currentView === 'logs' ? 'active' : ''}"
                         .processes="${this.processes}"
                     ></tspm-logs>
+
+                    <tspm-profiles
+                        class="view ${this.currentView === 'profiles' ? 'active' : ''}"
+                    ></tspm-profiles>
                 </div>
             </main>
 

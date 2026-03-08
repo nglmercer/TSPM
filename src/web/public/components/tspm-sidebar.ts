@@ -153,6 +153,10 @@ export class TspmSidebar extends LitElement {
                     <i data-lucide="file-text"></i>
                     <span>Live Logs</span>
                 </button>
+                <button class="nav-btn ${this.currentView === 'profiles' ? 'active' : ''}" @click="${() => this._changeView('profiles')}">
+                    <i data-lucide="folder-cog"></i>
+                    <span>Profiles</span>
+                </button>
             </div>
 
             <div class="sidebar-footer">

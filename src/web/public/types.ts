@@ -176,7 +176,7 @@ export interface ViewLogsDetail {
 /**
  * Available view types
  */
-export type ViewType = 'dashboard' | 'processes' | 'terminal' | 'logs';
+export type ViewType = 'dashboard' | 'processes' | 'terminal' | 'logs' | 'profiles';
 
 // ============================================
 // External Library Types
@@ -223,4 +223,39 @@ export function isProcessState(state: unknown): state is ProcessState {
  */
 export function isViewType(view: unknown): view is ViewType {
     return ['dashboard', 'processes', 'terminal', 'logs'].includes(view as string);
+}
+
+// ============================================
+// Process Profile Types
+// ============================================
+
+/**
+ * Process configuration from dump.json
+ */
+export interface DumpProcess {
+    name: string;
+    script: string;
+    interpreter?: string;
+    instances?: string | number;
+    namespace?: string;
+    args?: string[];
+    env?: Record<string, string>;
+}
+
+/**
+ * Saved profile containing process configurations
+ */
+export interface Profile {
+    id: string;
+    label: string;
+    processes: DumpProcess[];
+    savedAt: string;
+}
+
+/**
+ * Toast notification structure
+ */
+export interface ToastMessage {
+    msg: string;
+    ok: boolean;
 }
