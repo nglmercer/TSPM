@@ -288,12 +288,23 @@ export class TspmTerminal extends LitElement {
                 });
                 const data = await res.json();
                 
+                // Handle both success with output/error and failure cases
                 if (data.success) {
                     if (data.newCwd) {
                         this.currentCwd = data.newCwd;
                     }
+                    // Display output if present
                     if (data.output) {
                         this.history = [...this.history, { text: data.output, type: 'output' }];
+                    }
+                    // Display error (stderr) if present - command ran but produced stderr
+                    if (data.error) {
+                        this.history = [...this.history, { text: data.error, type: 'error' }];
+                    }
+                    // Also check exitCode - if non-zero, treat as error
+                    if (data.exitCode !== null && data.exitCode !== 0) {
+                        const errorMsg = data.error || `Command exited with code ${data.exitCode}`;
+                        this.history = [...this.history, { text: errorMsg, type: 'error' }];
                     }
                 } else {
                     if (data.error) {
