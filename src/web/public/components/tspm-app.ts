@@ -5,6 +5,8 @@ import type { ProcessStatus, SystemStats, WebSocketMessage, ProcessUpdatePayload
 // They are imported dynamically via lit decorators query
 import type { TspmLogs } from './tspm-logs';
 import type { TspmModal } from './tspm-modal';
+import type { TspmNotification, ToastOptions } from './tspm-notification';
+import './tspm-notification';
 
 @customElement('tspm-app')
 export class TspmApp extends LitElement {
@@ -16,6 +18,7 @@ export class TspmApp extends LitElement {
     private socket?: WebSocket;
 
     @query('tspm-modal') modal!: TspmModal;
+    @query('tspm-notification') notifications!: TspmNotification;
 
     constructor() {
         super();
@@ -38,6 +41,10 @@ export class TspmApp extends LitElement {
 
         this.addEventListener('delete-process', ((e: CustomEvent<string>) => {
             this._handleDeleteProcess(e.detail);
+        }) as EventListener);
+
+        this.addEventListener('show-notification', ((e: CustomEvent<ToastOptions>) => {
+            this.notifications.show(e.detail);
         }) as EventListener);
     }
 
@@ -236,6 +243,8 @@ export class TspmApp extends LitElement {
                 @process-added="${this.fetchData}"
                 @process-updated="${this.fetchData}"
             ></tspm-modal>
+
+            <tspm-notification></tspm-notification>
         `;
     }
 }

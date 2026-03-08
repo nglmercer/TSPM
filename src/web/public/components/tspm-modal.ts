@@ -867,16 +867,35 @@ export class TspmModal extends LitElement {
             const data = await res.json();
             if (data.success) {
                 this.close();
+                this.dispatchEvent(new CustomEvent('show-notification', {
+                    detail: { 
+                        message: this.editMode ? `Updated "${this.processName}"` : `Spawned "${config.name}"`, 
+                        type: 'success' 
+                    },
+                    bubbles: true,
+                    composed: true
+                }));
                 if (this.editMode) {
                     this.dispatchEvent(new CustomEvent('process-updated', { bubbles: true, composed: true }));
                 } else {
                     this.dispatchEvent(new CustomEvent('process-added', { bubbles: true, composed: true }));
                 }
             } else {
-                alert(data.error);
+                this.dispatchEvent(new CustomEvent('show-notification', {
+                    detail: { message: data.error || 'Operation failed', type: 'error', title: 'Error' },
+                    bubbles: true,
+                    composed: true
+                }));
             }
         } catch (err) {
-            alert(this.editMode ? 'Failed to update process' : 'Failed to spawn process');
+            this.dispatchEvent(new CustomEvent('show-notification', {
+                detail: { 
+                    message: this.editMode ? 'Failed to update process' : 'Failed to spawn process', 
+                    type: 'error' 
+                },
+                bubbles: true,
+                composed: true
+            }));
         }
     }
 

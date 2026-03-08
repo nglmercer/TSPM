@@ -166,42 +166,79 @@ export class ManagedProcess {
     const cmd = [...(this.config.args || [])];
     let interpreter = this.config.interpreter;
     let script = this.config.script;
+    let cwd = this.config.cwd;
 
-    // Logic to determine what to run
+    // Fix CWD if it points to a file instead of a directory
+    if (cwd) {
+      try {
+        const file = Bun.file(cwd);
+        const stat = await file.stat();
+        // If it's not a directory (Bun 1.0.x stat doesn't have isDirectory, but we can check size or use Node fs)
+        // Actually, let's use Node's fs for reliable directory check
+        const { statSync } = require('node:fs');
+        const s = statSync(cwd);
+        if (!s.isDirectory()) {
+          const { dirname } = require('node:path');
+          cwd = dirname(cwd);
+          log.warn(`${APP_CONSTANTS.LOG_PREFIX} CWD was a file, using parent directory: ${cwd}`);
+        }
+      } catch (e) {
+        log.error(`${APP_CONSTANTS.LOG_PREFIX} Error checking CWD: ${e}`);
+      }
+    }
+
+    // Determine interpreter and command
     if (!interpreter) {
       // Use bun as default interpreter for JS/TS scripts if not explicitly provided
       if (script.endsWith(SCRIPT_EXTENSIONS.TYPESCRIPT) || script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
         interpreter = APP_CONSTANTS.DEFAULT_INTERPRETER;
         cmd.unshift(script);
         
-        // For Bun source maps
         env[BUN_ENV_VARS.VERBOSE_SOURCE_MAPS] = "true";
-        
         if (script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
           env[NODE_ENV_VARS.NODE_OPTIONS] = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
         }
+      } else if (script.includes(' ')) {
+        // Command string: "bun run start"
+        interpreter = 'sh';
+        cmd.unshift('-c', script);
       } else {
-        // If no interpreter and not a JS/TS script, check if it's a complex command
-        if (script.includes(' ') && !script.startsWith('./') && !script.startsWith('/')) {
-            // It looks like a command string e.g. "bun run start"
-            interpreter = 'sh';
-            cmd.unshift('-c', script);
-        } else {
-            // It's likely a binary or script we can execute directly
-            interpreter = script;
-        }
+        // Binary or script
+        interpreter = script;
+      }
+    } else if (interpreter === 'sh' || interpreter === 'bash') {
+      // For shell interpreters, if script has spaces, use -c
+      if (script.includes(' ')) {
+        cmd.unshift('-c', script);
+      } else {
+        cmd.unshift(script);
       }
     } else if (interpreter === 'none') {
-        // Explicitly no interpreter, run script directly
-        interpreter = script;
+      // Run script directly as binary
+      interpreter = script;
     } else {
-        // Use provided interpreter
+      // Standard interpreter (node, bun, python)
+      // If script has spaces, it might be a sub-command like "run start"
+      if (script.includes(' ')) {
+        const parts = script.split(' ');
+        const first = parts.shift()!;
+        if (first === interpreter) {
+          // script was "bun run start" and interpreter was "bun"
+          // result: interpreter="bun", cmd=["run", "start", ...args]
+          cmd.unshift(...parts);
+        } else {
+          // script was "run start" and interpreter was "bun"
+          cmd.unshift(...parts);
+          cmd.unshift(first);
+        }
+      } else {
         cmd.unshift(script);
+      }
     }
 
     this.subprocess = spawn({
       cmd: [interpreter, ...cmd],
-      cwd: this.config.cwd,
+      cwd,
       env,
       stdout: "pipe",
       stderr: "pipe",
