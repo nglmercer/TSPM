@@ -1,6 +1,10 @@
 import { HTTP_STATUS } from "../../constants";
 import type { Router } from "../router";
 import type { ProcessConfig } from "../../../core/types";
+import { processLogStore } from "../../logger";
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import { DEFAULT_PROCESS_CONFIG } from "../../config/constants";
 
 /**
  * Validate process name - must be alphanumeric with hyphens/underscores only
@@ -19,32 +23,6 @@ export function registerProcessRoutes(router: Router) {
         return Response.json({
             success: true,
             data: (router as any).getStatusesWithStats()
-        });
-    });
-
-    // Get single process
-    router.addRoute('GET', '/processes/:name', async (req, params) => {
-        const name = params?.['name'];
-        if (!name || !isValidProcessName(name)) {
-            return Response.json({ 
-                success: false, 
-                error: "Invalid process name" 
-            }, { status: HTTP_STATUS.BAD_REQUEST });
-        }
-
-        const statuses = (router as any).getStatusesWithStats();
-        const process = statuses.find((p: any) => p.name === name);
-
-        if (!process) {
-            return Response.json({ 
-                success: false, 
-                error: "Process not found" 
-            }, { status: HTTP_STATUS.NOT_FOUND });
-        }
-
-        return Response.json({
-            success: true,
-            data: process
         });
     });
 
@@ -171,6 +149,37 @@ export function registerProcessRoutes(router: Router) {
         }
     });
 
+    // Get all process logs combined
+    router.addRoute('GET', '/logs', async (req) => {
+        const limit = parseInt(new URL(req.url).searchParams.get('limit') || '50');
+        const statuses = (router as any).getStatusesWithStats();
+        
+        let allLogs: any[] = [];
+        try {
+            for (const status of statuses) {
+                const logPath = join(DEFAULT_PROCESS_CONFIG.logDir, `${status.name}.log`);
+                if (existsSync(logPath)) {
+                    const content = readFileSync(logPath, 'utf-8');
+                    const lines = content.split('\n').filter(Boolean);
+                    const showLines = lines.slice(-limit);
+                    const mapped = showLines.map(line => ({
+                        processName: status.name,
+                        message: line,
+                        timestamp: new Date().toISOString()
+                    }));
+                    allLogs.push(...mapped);
+                }
+            }
+        } catch (e: any) {
+             console.error(`Failed to read combined logs:`, e);
+        }
+
+        return Response.json({
+            success: true,
+            data: { logs: allLogs }
+        });
+    });
+
     // Get process logs
     router.addRoute('GET', '/processes/:name/logs', async (req, params) => {
         const name = params?.['name'];
@@ -183,13 +192,43 @@ export function registerProcessRoutes(router: Router) {
 
         const limit = parseInt(new URL(req.url).searchParams.get('limit') || '100');
         
+        // Use ProcessLogStore to get both stdout and stderr logs
+        const logs = await processLogStore.getProcessLogs(name, limit);
+        
         return Response.json({
             success: true,
             data: {
                 processName: name,
-                logs: [], 
-                limit
+                logs, 
+                limit,
+                count: logs.length
             }
+        });
+    });
+
+    // Get single process
+    router.addRoute('GET', '/processes/:name', async (req, params) => {
+        const name = params?.['name'];
+        if (!name || !isValidProcessName(name)) {
+            return Response.json({ 
+                success: false, 
+                error: "Invalid process name" 
+            }, { status: HTTP_STATUS.BAD_REQUEST });
+        }
+
+        const statuses = (router as any).getStatusesWithStats();
+        const process = statuses.find((p: any) => p.name === name);
+
+        if (!process) {
+            return Response.json({ 
+                success: false, 
+                error: "Process not found" 
+            }, { status: HTTP_STATUS.NOT_FOUND });
+        }
+
+        return Response.json({
+            success: true,
+            data: process
         });
     });
 }

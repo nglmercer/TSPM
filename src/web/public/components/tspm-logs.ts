@@ -6,6 +6,8 @@ export class TspmLogs extends LitElement {
     @property({ type: Array }) processes: any[] = [];
     @property({ type: String }) selectedProcess = 'all';
     @state() private logs: any[] = [];
+    @state() private loading = false;
+    @state() private error = '';
 
     @query('.output') private outputEl?: HTMLElement;
 
@@ -14,10 +16,38 @@ export class TspmLogs extends LitElement {
         this._setupListeners();
     }
 
+    override connectedCallback() {
+        super.connectedCallback();
+        this._fetchLogs();
+    }
+
+    private async _fetchLogs() {
+        const url = this.selectedProcess === 'all' 
+            ? '/api/v1/logs?limit=100' 
+            : `/api/v1/processes/${this.selectedProcess}/logs?limit=100`;
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.success && data.data && data.data.logs) {
+                this.logs = data.data.logs;
+                this.requestUpdate();
+                setTimeout(() => this._scrollToBottom(), 100);
+            }
+        } catch (err) {
+            console.error('Failed to fetch persistent logs', err);
+        }
+    }
+
+    private _handleProcessChange(e: any) {
+        this.selectedProcess = e.target.value;
+        this._fetchLogs();
+    }
+
     private _setupListeners() {
         window.addEventListener('new-log', (e: any) => {
             this.logs = [...this.logs.slice(-999), e.detail];
-            this._scrollToBottom();
+            setTimeout(() => this._scrollToBottom(), 50);
         });
     }
 
@@ -102,11 +132,14 @@ export class TspmLogs extends LitElement {
         return html`
             <div class="container">
                 <div class="header">
-                    <select @change="${(e: any) => this.selectedProcess = e.target.value}">
+                    <select @change="${this._handleProcessChange}">
                         <option value="all">Global Logs</option>
                         ${this.processes.map(p => html`<option value="${p.name}" ?selected="${this.selectedProcess === p.name}">${p.name}</option>`)}
                     </select>
                     <div class="controls">
+                        <button class="btn-icon" title="Refresh" @click="${this._fetchLogs}">
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
                         <button class="btn-icon" title="Clear" @click="${() => this.logs = []}">
                             <i data-lucide="trash-2"></i>
                         </button>
