@@ -143,21 +143,25 @@ export async function startApi(manager: ProcessManager, config: ApiConfig) {
 
         // Periodic status updates with stats
         setInterval(() => {
-            const statuses = manager.getStatuses();
-            const processesWithStats = statuses.map(status => {
-                const proc = manager.getProcess(status.name);
-                const stats = proc?.getLastStats();
-                return {
-                    ...status,
-                    cpu: stats?.cpu || 0,
-                    memory: stats?.memory || 0
-                };
-            });
-            
-            server.publish("updates", JSON.stringify({
-                type: 'process:update',
-                payload: processesWithStats
-            }));
+            try {
+                const statuses = manager.getStatuses();
+                const processesWithStats = statuses.map(status => {
+                    const proc = manager.getProcess(status.name);
+                    const stats = proc?.getLastStats();
+                    return {
+                        ...status,
+                        cpu: stats?.cpu || 0,
+                        memory: stats?.memory || 0
+                    };
+                });
+                
+                server.publish("updates", JSON.stringify({
+                    type: 'process:update',
+                    payload: { processes: processesWithStats }
+                }));
+            } catch (e) {
+                log.debug(`[TSPM Web] Error publishing process updates: ${e}`);
+            }
         }, 2000);
 
         const actualPort = server.port ?? port;

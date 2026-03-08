@@ -124,9 +124,10 @@ export class TspmLogs extends LitElement {
     }
 
     override render() {
+        const logs = this.logs ?? [];
         const filteredLogs = this.selectedProcess === 'all' 
-            ? this.logs 
-            : this.logs!.filter(l => l.processName === this.selectedProcess);
+            ? logs 
+            : logs.filter(l => l && l.processName === this.selectedProcess);
 
         return html`
             <div class="container">
@@ -145,11 +146,11 @@ export class TspmLogs extends LitElement {
                     </div>
                 </div>
                 <div class="output">
-                    ${filteredLogs!.map(log => html`
+                    ${filteredLogs.filter(Boolean).map(log => html`
                         <div class="line">
-                            <span class="timestamp">[${new Date().toLocaleTimeString()}]</span>
-                            <span class="proc">[${log.processName}]</span>
-                            <span class="msg">${log.message}</span>
+                            <span class="timestamp">[${log!.timestamp || ''}]</span>
+                            <span class="proc">[${log!.processName || ''}]</span>
+                            <span class="msg">${log!.message || ''}</span>
                         </div>
                     `)}
                 </div>

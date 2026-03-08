@@ -126,7 +126,7 @@ export class TspmSidebar extends LitElement {
     `;
 
     private _changeView(view: string) {
-        this.dispatchEvent(new CustomEvent('view-change', { detail: view }));
+        this.dispatchEvent(new CustomEvent('view-change', { detail: { view } }));
     }
 
     override render() {
