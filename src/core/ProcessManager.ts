@@ -26,6 +26,7 @@ export class ProcessManager {
   constructor(options?: { 
     monitoring?: MonitoringServiceOptions;
     webhooks?: WebhookConfig[];
+    loadState?: boolean;
   }) {
     this.eventEmitter = getDefaultEmitter();
     if (options?.monitoring) {
@@ -39,8 +40,10 @@ export class ProcessManager {
       });
     }
 
-    // Load persisted processes
-    this.loadState();
+    // Load persisted processes (skip in test mode)
+    if (options?.loadState !== false) {
+      this.loadState();
+    }
   }
 
   private loadState(): void {

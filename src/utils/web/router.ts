@@ -81,29 +81,42 @@ export class Router {
     }
 
     private matchPath(pattern: string, path: string): Record<string, string> | null {
-        // Normalize paths: remove trailing slashes to prevent /processes matching /processes/
-        const normalizePath = (p: string) => p.replace(/\/+$/, '') || '/';
+        const paramNames: string[] = [];
         
-        const patternParts = normalizePath(pattern).split('/').filter(Boolean);
-        const pathParts = normalizePath(path).split('/').filter(Boolean);
+        const normalize = (p: string) => p.replace(/\/+$/, '') || '/';
+        const normalizedPattern = normalize(pattern);
+        const normalizedPath = normalize(path);
 
-        if (patternParts.length !== pathParts.length) return null;
+        const patternParts = normalizedPattern.split('/').filter(Boolean);
+        
+        let regexStr = '^';
+        if (patternParts.length === 0) {
+            regexStr += '\\/';
+        } else {
+            for (const part of patternParts) {
+                regexStr += '\\/';
+                if (part.startsWith(':')) {
+                    paramNames.push(part.substring(1));
+                    // Non-greedy if not last, greedy if last
+                    const isLast = part === patternParts[patternParts.length - 1];
+                    regexStr += isLast ? '(.+)' : '(.+?)';
+                } else {
+                    regexStr += part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                }
+            }
+        }
+        regexStr += '$';
+
+        const regex = new RegExp(regexStr);
+        const match = normalizedPath.match(regex);
+
+        if (!match) return null;
 
         const params: Record<string, string> = {};
-
-        for (let i = 0; i < patternParts.length; i++) {
-            const patternPart = patternParts[i]!;
-            const pathPart = pathParts[i]!;
-
-            if (patternPart.startsWith(':')) {
-                // Validate the parameter is not empty and doesn't look like a path
-                if (!pathPart || pathPart.includes('..') || pathPart.startsWith('/')) {
-                    return null;
-                }
-                params[patternPart.substring(1)] = pathPart;
-            } else if (patternPart !== pathPart) {
-                return null;
-            }
+        for (let i = 0; i < paramNames.length; i++) {
+            let val = match[i + 1]!;
+            try { val = decodeURIComponent(val); } catch(e) {}
+            params[paramNames[i]!] = val;
         }
 
         return params;
