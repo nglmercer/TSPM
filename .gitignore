@@ -10,6 +10,7 @@ index.d.ts.map
 index.d.ts
 data/**
 config.json
+
 # code coverage
 coverage
 *.lcov
@@ -38,4 +39,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .tspm/**
 
 # binary
-cli
+# cli
+
