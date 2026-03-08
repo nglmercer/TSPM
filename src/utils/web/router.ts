@@ -17,6 +17,7 @@ import type {
 } from "./types";
 import { registerProcessRoutes } from "./routes/process";
 import { registerSystemRoutes } from "./routes/system";
+import { registerDumpRoutes } from "./routes/dump";
 
 export class Router {
     private routes: Route[] = [];
@@ -31,6 +32,7 @@ export class Router {
     private registerRoutes(): void {
         registerProcessRoutes(this);
         registerSystemRoutes(this);
+        registerDumpRoutes(this);
     }
 
     /**

@@ -59,7 +59,9 @@ export class TspmApp extends LitElement {
     handleUpdate(data: WebSocketMessage) {
         switch (data.type) {
             case 'process:update':
-                this.processes = (data.payload as ProcessUpdatePayload).processes;
+                this.processes = Array.isArray((data.payload as ProcessUpdatePayload)?.processes)
+                    ? (data.payload as ProcessUpdatePayload).processes
+                    : [];
                 break;
             case 'process:log':
                 this.dispatchEvent(new CustomEvent('new-log', { detail: data.payload, bubbles: true, composed: true }));
@@ -78,7 +80,7 @@ export class TspmApp extends LitElement {
             const res = await fetch('/api/v1/status');
             const data = await res.json();
             if (data.success) {
-                this.processes = data.data.processes;
+                this.processes = Array.isArray(data.data?.processes) ? data.data.processes : [];
             }
         } catch (err) {
             console.error('Failed to fetch data', err);

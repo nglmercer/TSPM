@@ -4,7 +4,7 @@ import type { ProcessStatus, SystemStats } from '../types';
 
 @customElement('tspm-dashboard')
 export class TspmDashboard extends LitElement {
-    @property({ type: Array }) processes: ProcessStatus[] = [];
+    @property({ type: Array }) processes: ProcessStatus[] | undefined = undefined;
     @property({ type: Object }) stats: SystemStats = { cpu: 0, memory: 0, uptime: 0 };
 
     static override styles = css`
@@ -134,8 +134,9 @@ export class TspmDashboard extends LitElement {
     }
 
     override render() {
-        const totalCpu = this.processes.reduce((acc, p) => acc + (p.cpu || 0), 0);
-        const totalMem = this.processes.reduce((acc, p) => acc + (p.memory || 0), 0);
+        const processes = this.processes ?? [];
+        const totalCpu = processes.reduce((acc, p) => acc + (p.cpu || 0), 0);
+        const totalMem = processes.reduce((acc, p) => acc + (p.memory || 0), 0);
 
         return html`
             <div class="stats-grid">
@@ -144,7 +145,7 @@ export class TspmDashboard extends LitElement {
                         <h3>Total Processes</h3>
                         <i data-lucide="layers"></i>
                     </div>
-                    <div class="stat-value">${this.processes.length}</div>
+                    <div class="stat-value">${processes.length}</div>
                     <div class="stat-footer">
                         <span class="text-success">Active & Monitoring</span>
                     </div>
@@ -173,17 +174,6 @@ export class TspmDashboard extends LitElement {
                         <span class="text-muted">Total allocated</span>
                     </div>
                 </div>
-
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <h3>System Health</h3>
-                        <i data-lucide="shield-check"></i>
-                    </div>
-                    <div class="stat-value">Stable</div>
-                    <div class="stat-footer">
-                        <span class="text-success">All services operational</span>
-                    </div>
-                </div>
             </div>
 
             <div class="section-header">
@@ -191,12 +181,12 @@ export class TspmDashboard extends LitElement {
             </div>
 
             <div class="process-grid">
-                ${this.processes.length === 0 ? html`
+                ${processes.length === 0 ? html`
                     <div class="loading-state">
                         <i data-lucide="loader-2" class="spin"></i>
                         <p>Waiting for process data...</p>
                     </div>
-                ` : this.processes.map(p => html`
+                ` : processes.map(p => html`
                     <tspm-process-card .process="${p}"></tspm-process-card>
                 `)}
             </div>
