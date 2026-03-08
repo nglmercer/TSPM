@@ -376,35 +376,48 @@ export class TspmModal extends LitElement {
     }
 
     private _resetForm() {
-        this._formData = {};
-        this._expandedSections = new Set(['basic']);
-        this._showAdvanced = false;
+        const newData: Record<string, unknown> = {};
         
         // Set default values from schema
         for (const field of PROCESS_CONFIG_FIELDS) {
             if (field.defaultValue !== undefined) {
-                this._formData[field.name] = field.defaultValue;
+                newData[field.name] = field.defaultValue;
             }
         }
+        
+        this._formData = newData;
+        this._expandedSections = new Set(['basic']);
+        this._showAdvanced = false;
     }
 
     private _populateForm() {
         if (this.editProcess) {
-            // Copy all properties from editProcess to formData
+            const newData: Record<string, unknown> = {};
+            
+            // 1. Initialize with default values first
+            for (const field of PROCESS_CONFIG_FIELDS) {
+                if (field.defaultValue !== undefined) {
+                    newData[field.name] = field.defaultValue;
+                }
+            }
+
+            // 2. Copy all properties from editProcess
             for (const key of Object.keys(this.editProcess)) {
                 const value = this.editProcess[key as keyof DumpProcess];
                 
                 // Handle special conversions
                 if (key === 'instances') {
-                    this._formData[key] = typeof value === 'string' 
+                    newData[key] = typeof value === 'string' 
                         ? parseInt(value, 10) || 1 
                         : value || 1;
                 } else if (key === 'args' && Array.isArray(value)) {
-                    this._formData[key] = value;
+                    newData[key] = [...value];
                 } else if (value !== undefined) {
-                    this._formData[key] = value;
+                    newData[key] = value;
                 }
             }
+            
+            this._formData = newData;
         }
     }
 
