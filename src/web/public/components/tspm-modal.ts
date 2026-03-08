@@ -851,7 +851,9 @@ export class TspmModal extends LitElement {
             let res: Response;
             if (this.editMode && this.processName) {
                 // Edit mode - PATCH request
-                res = await fetch(`/api/v1/dump/${encodeURIComponent(this.processName)}`, {
+                // Use single encoding - the router handles this correctly
+                const nameParam = encodeURIComponent(this.processName);
+                res = await fetch(`/api/v1/dump/${nameParam}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(config)

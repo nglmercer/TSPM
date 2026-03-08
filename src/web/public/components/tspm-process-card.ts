@@ -146,7 +146,8 @@ export class TspmProcessCard extends LitElement {
 
     private async action(type: string) {
         try {
-            const res = await fetch(`/api/v1/processes/${this.process.name}/${type}`, { method: 'POST' });
+            const encodedName = encodeURIComponent(this.process.name);
+            const res = await fetch(`/api/v1/processes/${encodedName}/${type}`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
                 this.dispatchEvent(new CustomEvent('refresh-required', { bubbles: true, composed: true }));
