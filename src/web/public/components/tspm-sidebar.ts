@@ -166,9 +166,8 @@ export class TspmSidebar extends LitElement {
 
     override updated() {
         // Lucide icons need to be initialized after render
-        const lucide = (window as any).lucide;
-        if (lucide) {
-            lucide.createIcons({
+        if (this.shadowRoot && window.lucide) {
+            window.lucide.createIcons({
                 attrs: {
                     'stroke-width': 2,
                     'class': 'lucide-icon'

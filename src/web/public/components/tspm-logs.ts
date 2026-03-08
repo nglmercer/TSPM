@@ -1,17 +1,11 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
-interface LogsType {
-    timestamp?: string;
-    processName?: string;
-    message?: string;
-}
+import type { ProcessStatus, ProcessLogEntry } from '../types';
 @customElement('tspm-logs')
 export class TspmLogs extends LitElement {
-    @property({ type: Array }) processes: any[] = [];
+    @property({ type: Array }) processes: ProcessStatus[] = [];
     @property({ type: String }) selectedProcess = 'all';
-    @state() private logs?: LogsType[] = [];
-    @state() private loading = false;
-    @state() private error = '';
+    @state() private logs: ProcessLogEntry[] = [];
 
     @query('.output') private outputEl?: HTMLElement;
 
@@ -43,16 +37,17 @@ export class TspmLogs extends LitElement {
         }
     }
 
-    private _handleProcessChange(e: any) {
-        this.selectedProcess = e.target.value;
+    private _handleProcessChange(e: Event) {
+        const target = e.target as HTMLSelectElement;
+        this.selectedProcess = target.value;
         this._fetchLogs();
     }
 
     private _setupListeners() {
-        window.addEventListener('new-log', (e: any) => {
-            this.logs = [...this.logs!.slice(-999), e.detail];
+        window.addEventListener('new-log', ((e: CustomEvent<ProcessLogEntry>) => {
+            this.logs = [...this.logs.slice(-999), e.detail];
             setTimeout(() => this._scrollToBottom(), 50);
-        });
+        }) as EventListener);
     }
 
     static override styles = css`
@@ -163,9 +158,8 @@ export class TspmLogs extends LitElement {
     }
 
     override updated() {
-        const lucide = (window as any).lucide;
-        if (lucide) {
-            lucide.createIcons({
+        if (this.shadowRoot && window.lucide) {
+            window.lucide.createIcons({
                 attrs: { 'stroke-width': 2, 'class': 'lucide-icon' },
                 root: this.shadowRoot
             });

@@ -1,29 +1,34 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
+import type { ProcessStatus, SystemStats, WebSocketMessage, ProcessUpdatePayload, ViewChangeDetail } from '../types';
+// Note: TspmLogs and TspmModal types are used for query selector typing
+// They are imported dynamically via lit decorators query
+import type { TspmLogs } from './tspm-logs';
+import type { TspmModal } from './tspm-modal';
 
 @customElement('tspm-app')
 export class TspmApp extends LitElement {
     @state() currentView = 'dashboard';
-    @state() processes: any[] = [];
-    @state() systemStats = { cpu: 0, memory: 0, uptime: 0 };
+    @state() processes: ProcessStatus[] = [];
+    @state() systemStats: SystemStats = { cpu: 0, memory: 0, uptime: 0 };
     @state() isOnline = false;
     
     private socket?: WebSocket;
 
-    @query('tspm-modal') modal: any;
+    @query('tspm-modal') modal!: TspmModal;
 
     constructor() {
         super();
         this.connect();
 
-        this.addEventListener('view-logs', (e: any) => {
+        this.addEventListener('view-logs', ((e: CustomEvent<string>) => {
             this.currentView = 'logs';
             // Wait for update then set the selected process
             this.updateComplete.then(() => {
-                const logsComp = this.shadowRoot?.querySelector('tspm-logs') as any;
+                const logsComp = this.shadowRoot?.querySelector('tspm-logs') as TspmLogs | null;
                 if (logsComp) logsComp.selectedProcess = e.detail;
             });
-        });
+        }) as EventListener);
 
         this.addEventListener('refresh-required', () => this.fetchData());
     }
@@ -51,10 +56,10 @@ export class TspmApp extends LitElement {
         };
     }
 
-    handleUpdate(data: any) {
+    handleUpdate(data: WebSocketMessage) {
         switch (data.type) {
             case 'process:update':
-                this.processes = data.payload;
+                this.processes = (data.payload as ProcessUpdatePayload).processes;
                 break;
             case 'process:log':
                 this.dispatchEvent(new CustomEvent('new-log', { detail: data.payload, bubbles: true, composed: true }));
@@ -63,7 +68,7 @@ export class TspmApp extends LitElement {
                 this.dispatchEvent(new CustomEvent('terminal-out', { detail: data.payload, bubbles: true, composed: true }));
                 break;
             case 'system:stats':
-                this.systemStats = data.payload;
+                this.systemStats = data.payload as SystemStats;
                 break;
         }
     }
@@ -141,7 +146,7 @@ export class TspmApp extends LitElement {
             <tspm-sidebar 
                 .currentView="${this.currentView}" 
                 .isOnline="${this.isOnline}"
-                @view-change="${(e: any) => this.currentView = e.detail}"
+                @view-change="${(e: CustomEvent<ViewChangeDetail>) => this.currentView = e.detail.view}"
             ></tspm-sidebar>
             
             <main class="main-content">

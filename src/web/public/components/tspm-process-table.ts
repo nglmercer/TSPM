@@ -1,9 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { ProcessStatus } from '../types';
 
 @customElement('tspm-process-table')
 export class TspmProcessTable extends LitElement {
-    @property({ type: Array }) processes: any[] = [];
+    @property({ type: Array }) processes: ProcessStatus[] = [];
 
     static override styles = css`
         :host {
@@ -144,9 +145,8 @@ export class TspmProcessTable extends LitElement {
     }
 
     override updated() {
-        const lucide = (window as any).lucide;
-        if (lucide) {
-            lucide.createIcons({
+        if (this.shadowRoot && window.lucide) {
+            window.lucide.createIcons({
                 attrs: { 'stroke-width': 2, 'class': 'lucide-icon' },
                 root: this.shadowRoot
             });

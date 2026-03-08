@@ -1,10 +1,11 @@
 import { LitElement, html, css, type PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
+import type { TerminalEntry } from '../types';
 
 @customElement('tspm-terminal')
 export class TspmTerminal extends LitElement {
     @property({ type: Boolean }) active = false;
-    @state() private history: any[] = [];
+    @state() private history: TerminalEntry[] = [];
     @state() private currentCwd: string = '';
 
     @query('.output') private outputEl?: HTMLElement;
@@ -33,10 +34,10 @@ export class TspmTerminal extends LitElement {
     }
 
     private _setupListeners() {
-        window.addEventListener('terminal-out', (e: any) => {
+        window.addEventListener('terminal-out', ((e: CustomEvent<string>) => {
             this.history = [...this.history, { text: e.detail, type: 'output' }];
             this._scrollToBottom();
-        });
+        }) as EventListener);
     }
 
     static override styles = css`

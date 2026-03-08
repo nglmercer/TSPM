@@ -1,10 +1,11 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { ProcessStatus, SystemStats } from '../types';
 
 @customElement('tspm-dashboard')
 export class TspmDashboard extends LitElement {
-    @property({ type: Array }) processes: any[] = [];
-    @property({ type: Object }) stats: any = {};
+    @property({ type: Array }) processes: ProcessStatus[] = [];
+    @property({ type: Object }) stats: SystemStats = { cpu: 0, memory: 0, uptime: 0 };
 
     static override styles = css`
         :host {
@@ -203,9 +204,8 @@ export class TspmDashboard extends LitElement {
     }
 
     override updated() {
-        const lucide = (window as any).lucide;
-        if (lucide) {
-            lucide.createIcons({
+        if (this.shadowRoot && window.lucide) {
+            window.lucide.createIcons({
                 attrs: { 'stroke-width': 2, 'class': 'lucide-icon' },
                 root: this.shadowRoot
             });

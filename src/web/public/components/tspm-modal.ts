@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { ProcessFormConfig } from '../types';
 
 @customElement('tspm-modal')
 export class TspmModal extends LitElement {
@@ -110,12 +111,24 @@ export class TspmModal extends LitElement {
     private async _handleSubmit(e: SubmitEvent) {
         e.preventDefault();
         const formData = new FormData(e.target as HTMLFormElement);
-        const config: any = Object.fromEntries(formData.entries());
+        const config: ProcessFormConfig = {
+            name: String(formData.get('name') || ''),
+            script: String(formData.get('script') || ''),
+            interpreter: String(formData.get('interpreter') || ''),
+            instances: Number(formData.get('instances') || 1),
+            namespace: String(formData.get('namespace') || '')
+        };
 
-        if (config.args) {
-            config.args = config.args.split(' ').filter((a: string) => a.trim() !== '');
-        } else {
-            delete config.args;
+        if (config.interpreter === '') {
+            delete config.interpreter;
+        }
+        if (config.namespace === '') {
+            delete config.namespace;
+        }
+
+        const argsStr = String(formData.get('args') || '');
+        if (argsStr.trim()) {
+            config.args = argsStr.split(' ').filter((a) => a.trim() !== '');
         }
 
         try {
@@ -138,7 +151,7 @@ export class TspmModal extends LitElement {
 
     override render() {
         return html`
-            <div class="overlay ${this.isOpen ? 'active' : ''}" @click="${(e: any) => e.target.classList.contains('overlay') && this.close()}">
+            <div class="overlay ${this.isOpen ? 'active' : ''}" @click="${(e: MouseEvent) => e.target === e.currentTarget && this.close()}">
                 <div class="modal">
                     <header>
                         <h2>Process Configuration</h2>
@@ -173,10 +186,7 @@ export class TspmModal extends LitElement {
                         <div class="row">
                             <div class="form-group">
                                 <label>Arguments (Space separated)</label>
-                                <input type="text" name="args" placeholder="--port 8080" @change="${(e: any) => {
-                                    // We'll handle splitting on the backend or here?
-                                    // Let's handle it here to satisfy the API
-                                }}" />
+                                <input type="text" name="args" placeholder="--port 8080" />
                             </div>
                             <div class="form-group">
                                 <label>Namespace</label>

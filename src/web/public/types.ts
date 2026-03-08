@@ -193,9 +193,9 @@ export interface LucideIcons {
  * Lucide icons options
  */
 export interface LucideIconsOptions {
-    attrs?: Record<string, string>;
+    attrs?: Record<string, string | number>;
     nameAttr?: string;
-    root: ShadowRoot | HTMLElement;
+    root: ShadowRoot | HTMLElement | null;
 }
 
 /**
