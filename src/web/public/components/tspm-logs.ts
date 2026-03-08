@@ -95,10 +95,24 @@ export class TspmLogs extends LitElement {
             background: rgba(15, 15, 20, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 16px;
-            height: 620px;
+            height: calc(100vh - 160px);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                height: calc(100vh - 140px);
+            }
+            .header {
+                padding: 0.5rem 0.75rem;
+                flex-wrap: wrap;
+            }
+            select {
+                max-width: 150px;
+                font-size: 0.8rem;
+            }
         }
 
         .header {
@@ -167,6 +181,14 @@ export class TspmLogs extends LitElement {
             scrollbar-width: thin;
             scrollbar-color: #2d2d44 transparent;
         }
+        
+        @media (max-width: 600px) {
+            .output {
+                font-size: 0.72rem;
+                padding: 0.5rem;
+            }
+        }
+
         .output::-webkit-scrollbar { width: 5px; }
         .output::-webkit-scrollbar-thumb { background: #2d2d44; border-radius: 4px; }
 
@@ -177,6 +199,34 @@ export class TspmLogs extends LitElement {
             padding: 1px 4px;
             border-radius: 4px;
         }
+
+        @media (max-width: 768px) {
+            .line {
+                grid-template-columns: 65px 100px 1fr;
+                gap: 6px;
+            }
+        }
+
+        @media (max-width: 500px) {
+            .line {
+                display: block;
+                padding: 4px 0;
+                border-bottom: 1px solid rgba(255,255,255,0.03);
+            }
+            .timestamp {
+                font-size: 0.65rem;
+                margin-right: 8px;
+            }
+            .proc {
+                font-size: 0.65rem;
+                opacity: 0.8;
+            }
+            .msg {
+                display: block;
+                margin-top: 2px;
+            }
+        }
+
         .line:hover { background: rgba(255, 255, 255, 0.025); }
 
         .timestamp { color: #475569; white-space: nowrap; }

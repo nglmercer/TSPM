@@ -104,9 +104,14 @@ export class TspmTopbar extends LitElement {
 
     override render() {
         return html`
-            <div class="search-container">
-                <i data-lucide="search"></i>
-                <input type="text" placeholder="Search processes, logs, commands..." />
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="btn btn-secondary btn-icon" @click="${() => this.dispatchEvent(new CustomEvent('toggle-sidebar', { bubbles: true, composed: true }))}">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="search-container">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Search processes, logs, commands..." />
+                </div>
             </div>
 
             <div class="actions">

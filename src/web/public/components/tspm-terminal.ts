@@ -50,11 +50,27 @@ export class TspmTerminal extends LitElement {
             background: #000;
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            height: 600px;
+            height: calc(100vh - 160px);
             display: flex;
             flex-direction: column;
             overflow: hidden;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        @media (max-width: 768px) {
+            .terminal {
+                height: calc(100vh - 140px);
+            }
+            .header {
+                padding: 6px 12px;
+            }
+            .cwd-display {
+                display: none;
+            }
+            .output {
+                font-size: 0.8rem;
+                padding: 0.75rem;
+            }
         }
 
         .header {
@@ -74,7 +90,16 @@ export class TspmTerminal extends LitElement {
         .dot.green { background: #27c93f; }
 
         .title { color: #888; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; }
-        .cwd-display { color: #6366f1; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; opacity: 0.8; }
+        .cwd-display { 
+            color: #6366f1; 
+            font-size: 0.75rem; 
+            font-family: 'JetBrains Mono', monospace; 
+            opacity: 0.8;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
         .output {
             flex: 1;
@@ -101,6 +126,16 @@ export class TspmTerminal extends LitElement {
             padding: 0.75rem 1rem;
             background: #000;
             border-top: 1px solid #1a1a1a;
+        }
+
+        @media (max-width: 500px) {
+            .input-area {
+                padding: 0.5rem;
+            }
+            .prompt {
+                font-size: 0.8rem;
+                margin-right: 6px;
+            }
         }
 
         .prompt { color: #10b981; margin-right: 12px; font-weight: bold; font-family: 'JetBrains Mono', monospace; }

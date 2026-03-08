@@ -158,6 +158,18 @@ export class TspmApp extends LitElement {
             :host {
                 grid-template-columns: 80px 1fr;
             }
+            .view-container {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :host {
+                grid-template-columns: 60px 1fr;
+            }
+            .view-container {
+                padding: 0.75rem;
+            }
         }
 
         .main-content {
