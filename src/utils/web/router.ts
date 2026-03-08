@@ -81,8 +81,11 @@ export class Router {
     }
 
     private matchPath(pattern: string, path: string): Record<string, string> | null {
-        const patternParts = pattern.split('/').filter(Boolean);
-        const pathParts = path.split('/').filter(Boolean);
+        // Normalize paths: remove trailing slashes to prevent /processes matching /processes/
+        const normalizePath = (p: string) => p.replace(/\/+$/, '') || '/';
+        
+        const patternParts = normalizePath(pattern).split('/').filter(Boolean);
+        const pathParts = normalizePath(path).split('/').filter(Boolean);
 
         if (patternParts.length !== pathParts.length) return null;
 
@@ -93,6 +96,10 @@ export class Router {
             const pathPart = pathParts[i]!;
 
             if (patternPart.startsWith(':')) {
+                // Validate the parameter is not empty and doesn't look like a path
+                if (!pathPart || pathPart.includes('..') || pathPart.startsWith('/')) {
+                    return null;
+                }
                 params[patternPart.substring(1)] = pathPart;
             } else if (patternPart !== pathPart) {
                 return null;
@@ -151,7 +158,10 @@ export class Router {
     async handleRequest(req: Request): Promise<Response> {
         const method = req.method as HttpMethod;
         const url = req.url;
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
+        // Handle CORS preflight
         if (method === 'OPTIONS' && this.config.enableCors) {
             return new Response(null, {
                 status: HTTP_STATUS.OK,
@@ -159,6 +169,7 @@ export class Router {
             });
         }
 
+        // Try to match an API route
         const matched = this.matchRoute(method, url);
         if (matched) {
             try {
@@ -184,9 +195,20 @@ export class Router {
             }
         }
 
+        // If it starts with /api but didn't match any route, return 404
+        if (path.startsWith(this.globalPrefix)) {
+            return Response.json({
+                success: false,
+                error: 'API endpoint not found',
+                path: path
+            }, { status: HTTP_STATUS.NOT_FOUND });
+        }
+
+        // Try to serve static file
         const staticResponse = await this.serveStatic(req);
         if (staticResponse) return staticResponse;
 
+        // SPA fallback - serve index.html for client-side routing
         const indexPath = join(this.config.publicDir, 'index.html');
         const indexFile = Bun.file(indexPath);
         
@@ -199,7 +221,7 @@ export class Router {
         return Response.json({
             success: false,
             error: 'Not Found',
-            path: new URL(url).pathname
+            path: path
         }, { status: HTTP_STATUS.NOT_FOUND });
     }
 }

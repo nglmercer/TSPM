@@ -3,6 +3,7 @@ import { stat } from "fs/promises";
 import { API, HTTP_STATUS } from "../../constants";
 import type { Router } from "../router";
 import type { ProcessStatusWithStats } from "../types";
+import { eventLogger } from "../../logger";
 
 export function registerSystemRoutes(router: Router) {
     const { manager } = (router as any).config;
@@ -140,6 +141,17 @@ export function registerSystemRoutes(router: Router) {
             success: true,
             status: 'healthy',
             timestamp: new Date().toISOString()
+        });
+    });
+
+    // Get historical events
+    router.addRoute('GET', '/events', async (req) => {
+        const limit = parseInt(new URL(req.url).searchParams.get('limit') || '50');
+        const events = await eventLogger.getRecent(limit);
+        
+        return Response.json({
+            success: true,
+            data: events
         });
     });
 }

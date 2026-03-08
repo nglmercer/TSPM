@@ -219,8 +219,14 @@ export class ManagedProcess {
       EventPriorityValues.NORMAL
     ));
 
-    // Start memory monitoring
-    this.startMemoryMonitoring();
+    // Log to persistent event history
+    eventLogger.log("process:start", { 
+        name: this.config.name, 
+        instance: this.instanceId, 
+        pid: this.subprocess.pid,
+        interpreter: interpreter,
+        script: this.config.script
+    }).catch(e => log.error(`Failed to log process:start: ${e}`));
 
     if (stdoutPath && this.subprocess.stdout instanceof ReadableStream) {
       this.asyncStreamToBuffer(this.subprocess.stdout, stdoutPath, LOG_TYPE.STDOUT);
@@ -381,7 +387,7 @@ export class ManagedProcess {
   /**
    * Stop the managed process
    */
-  stop(): void {
+  async stop(): Promise<void> {
     const name = this.fullProcessName;
     this.isManuallyStopped = true;
     

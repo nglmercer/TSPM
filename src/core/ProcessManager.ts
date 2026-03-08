@@ -14,6 +14,7 @@ import {
 import { WebhookService, type WebhookConfig } from "../utils/webhooks";
 import { ProcessRegistry } from "./ProcessRegistry";
 import { ClusterManager } from "./ClusterManager";
+import { PersistenceManager } from "../utils/persistence";
   
 export class ProcessManager {
   private registry: ProcessRegistry = new ProcessRegistry();
@@ -37,13 +38,34 @@ export class ProcessManager {
         this.webhookService?.send(event);
       });
     }
+
+    // Load persisted processes
+    this.loadState();
+  }
+
+  private loadState(): void {
+    const data = PersistenceManager.load();
+    if (data && Array.isArray(data.processes)) {
+      for (const procConfig of data.processes) {
+        this.addProcess(procConfig, false);
+      }
+    }
+  }
+
+  private saveState(): void {
+    const configs = this.registry.getAll()
+      .filter(p => p.getInstanceId() === 0)
+      .map(p => p.getConfig());
+    
+    PersistenceManager.save({ processes: configs });
   }
 
   /**
    * Add a new process to be managed
    * @param config Process configuration
+   * @param shouldSave Whether to save state after adding
    */
-  addProcess(config: ProcessConfig): void {
+  addProcess(config: ProcessConfig, shouldSave: boolean = true): void {
     const instanceCount = config.instances || 1;
     
     // Create/get cluster
@@ -59,7 +81,11 @@ export class ProcessManager {
           cluster.addInstance(i, {
             weight: config.instanceWeight || 1,
           });
-        }
+         }
+    }
+
+    if (shouldSave) {
+        this.saveState();
     }
   }
 
@@ -98,11 +124,11 @@ export class ProcessManager {
    * Remove a process from management
    * @param name Process name or base name (to remove all instances)
    */
-  removeProcess(name: string): void {
+  async removeProcess(name: string): Promise<void> {
     const process = this.registry.get(name);
     if (process) {
       const config = process.getConfig();
-      process.stop();
+      await process.stop();
       this.registry.delete(name);
       
       // Remove from cluster
@@ -114,13 +140,14 @@ export class ProcessManager {
           this.clusterManager.removeCluster(config.name);
         }
       }
+      this.saveState();
     } else {
       // Check if it's a base name for multiple instances
       for (const proc of this.registry.getAll()) {
         const config = proc.getConfig();
         if (config.name === name) {
           const procName = proc.getInstanceId() > 0 ? `${config.name}-${proc.getInstanceId()}` : config.name;
-          proc.stop();
+          await proc.stop();
           this.registry.delete(procName);
           
           // Remove from cluster
@@ -148,12 +175,12 @@ export class ProcessManager {
    * Remove all processes in a namespace
    * @param namespace Namespace to remove
    */
-  removeByNamespace(namespace: string): void {
+  async removeByNamespace(namespace: string): Promise<void> {
     const procs = this.getProcessesByNamespace(namespace);
     for (const proc of procs) {
       const config = proc.getConfig();
       const name = proc.getInstanceId() > 0 ? `${config.name}-${proc.getInstanceId()}` : config.name;
-      proc.stop();
+      await proc.stop();
       this.registry.delete(name);
     }
   }
@@ -260,9 +287,9 @@ export class ProcessManager {
   /**
    * Stop all managed processes
    */
-  stopAll(): void {
+  async stopAll(): Promise<void> {
     for (const process of this.registry.values()) {
-      process.stop();
+      await process.stop();
     }
   }
 
@@ -284,7 +311,7 @@ export class ProcessManager {
   /**
    * Stop a process by name or base name
    */
-  stopProcess(name: string): void {
+  async stopProcess(name: string): Promise<void> {
     const processes = this.getProcessesByBaseName(name);
     if (processes.length === 0) {
       const p = this.registry.get(name);
@@ -292,7 +319,7 @@ export class ProcessManager {
     }
     
     for (const proc of processes) {
-      proc.stop();
+      await proc.stop();
     }
   }
 

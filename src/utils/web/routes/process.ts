@@ -2,6 +2,15 @@ import { HTTP_STATUS } from "../../constants";
 import type { Router } from "../router";
 import type { ProcessConfig } from "../../../core/types";
 
+/**
+ * Validate process name - must be alphanumeric with hyphens/underscores only
+ */
+function isValidProcessName(name: string): boolean {
+    if (!name || name.length === 0) return false;
+    // Allow alphanumeric, hyphens, underscores, dots (for file extensions like app.js)
+    return /^[a-zA-Z0-9_./-]+$/.test(name) && !name.includes('..');
+}
+
 export function registerProcessRoutes(router: Router) {
     const { manager } = (router as any).config;
 
@@ -16,10 +25,10 @@ export function registerProcessRoutes(router: Router) {
     // Get single process
     router.addRoute('GET', '/processes/:name', async (req, params) => {
         const name = params?.['name'];
-        if (!name) {
+        if (!name || !isValidProcessName(name)) {
             return Response.json({ 
                 success: false, 
-                error: "Process name required" 
+                error: "Invalid process name" 
             }, { status: HTTP_STATUS.BAD_REQUEST });
         }
 
@@ -69,10 +78,10 @@ export function registerProcessRoutes(router: Router) {
     // Start process
     router.addRoute('POST', '/processes/:name/start', async (req, params) => {
         const name = params?.['name'];
-        if (!name) {
+        if (!name || !isValidProcessName(name)) {
             return Response.json({ 
                 success: false, 
-                error: "Process name required" 
+                error: "Invalid process name" 
             }, { status: HTTP_STATUS.BAD_REQUEST });
         }
 
@@ -93,15 +102,15 @@ export function registerProcessRoutes(router: Router) {
     // Stop process
     router.addRoute('POST', '/processes/:name/stop', async (req, params) => {
         const name = params?.['name'];
-        if (!name) {
+        if (!name || !isValidProcessName(name)) {
             return Response.json({ 
                 success: false, 
-                error: "Process name required" 
+                error: "Invalid process name" 
             }, { status: HTTP_STATUS.BAD_REQUEST });
         }
 
         try {
-            manager.stopProcess(name);
+            await manager.stopProcess(name);
             return Response.json({ 
                 success: true, 
                 message: `Stopped ${name}` 
@@ -117,10 +126,10 @@ export function registerProcessRoutes(router: Router) {
     // Restart process
     router.addRoute('POST', '/processes/:name/restart', async (req, params) => {
         const name = params?.['name'];
-        if (!name) {
+        if (!name || !isValidProcessName(name)) {
             return Response.json({ 
                 success: false, 
-                error: "Process name required" 
+                error: "Invalid process name" 
             }, { status: HTTP_STATUS.BAD_REQUEST });
         }
 
@@ -141,15 +150,15 @@ export function registerProcessRoutes(router: Router) {
     // Delete process
     router.addRoute('DELETE', '/processes/:name', async (req, params) => {
         const name = params?.['name'];
-        if (!name) {
+        if (!name || !isValidProcessName(name)) {
             return Response.json({ 
                 success: false, 
-                error: "Process name required" 
+                error: "Invalid process name" 
             }, { status: HTTP_STATUS.BAD_REQUEST });
         }
 
         try {
-            manager.stopProcess(name);
+            await manager.stopProcess(name);
             return Response.json({ 
                 success: true, 
                 message: `Removed ${name}` 
@@ -165,10 +174,10 @@ export function registerProcessRoutes(router: Router) {
     // Get process logs
     router.addRoute('GET', '/processes/:name/logs', async (req, params) => {
         const name = params?.['name'];
-        if (!name) {
+        if (!name || !isValidProcessName(name)) {
             return Response.json({ 
                 success: false, 
-                error: "Process name required" 
+                error: "Invalid process name" 
             }, { status: HTTP_STATUS.BAD_REQUEST });
         }
 
