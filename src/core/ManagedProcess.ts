@@ -22,6 +22,43 @@ import { getProcessStats, type ProcessStats } from "../utils/stats";
 import { LogManager, log, eventLogger } from "../utils/logger";
 import { EventEmitter, EventTypeValues, EventPriorityValues, createEvent, getDefaultEmitter } from "../utils/events";
 
+/** A single in-memory log entry */
+export interface LogEntry {
+  timestamp: string;
+  type: 'stdout' | 'stderr';
+  message: string;
+}
+
+/** Fixed-size circular log buffer */
+class LogBuffer {
+  private entries: LogEntry[] = [];
+  private readonly maxSize: number;
+
+  constructor(maxSize = 2000) {
+    this.maxSize = maxSize;
+  }
+
+  push(entry: LogEntry): void {
+    if (this.entries.length >= this.maxSize) {
+      this.entries.shift();
+    }
+    this.entries.push(entry);
+  }
+
+  get(limit?: number): LogEntry[] {
+    if (!limit || limit >= this.entries.length) return [...this.entries];
+    return this.entries.slice(-limit);
+  }
+
+  clear(): void {
+    this.entries = [];
+  }
+
+  get size(): number {
+    return this.entries.length;
+  }
+}
+
 export class ManagedProcess {
   private subprocess?: Subprocess;
   private config: ProcessConfig;
@@ -36,6 +73,7 @@ export class ManagedProcess {
   private watcher?: FSWatcher;
   private memoryMonitorInterval?: Timer;
   private listenTimeoutTimer?: Timer;
+  private logBuffer: LogBuffer = new LogBuffer();
 
   constructor(config: ProcessConfig, instanceId = 0, eventEmitter?: EventEmitter) {
     this.config = config;
@@ -170,8 +208,9 @@ export class ManagedProcess {
       cmd: [interpreter, ...cmd],
       cwd: this.config.cwd,
       env,
-      stdout: stdoutPath ? "pipe" : "inherit",
-      stderr: stderrPath ? "pipe" : "inherit",
+      stdout: "pipe",
+      stderr: "pipe",
+      stdin: "pipe",
       onExit: (proc, exitCode, signalCode, error) => {
         this.handleExit(exitCode, signalCode, error);
       },
@@ -228,11 +267,13 @@ export class ManagedProcess {
         script: this.config.script
     }).catch(e => log.error(`Failed to log process:start: ${e}`));
 
-    if (stdoutPath && this.subprocess.stdout instanceof ReadableStream) {
-      this.asyncStreamToBuffer(this.subprocess.stdout, stdoutPath, LOG_TYPE.STDOUT);
+    // Always stream stdout and stderr into the in-memory buffer.
+    // File writing is a secondary optional concern handled inside the stream reader.
+    if (this.subprocess.stdout instanceof ReadableStream) {
+      this.asyncStreamToBuffer(this.subprocess.stdout, stdoutPath ?? null, LOG_TYPE.STDOUT);
     }
-    if (stderrPath && this.subprocess.stderr instanceof ReadableStream) {
-      this.asyncStreamToBuffer(this.subprocess.stderr, stderrPath, LOG_TYPE.STDERR);
+    if (this.subprocess.stderr instanceof ReadableStream) {
+      this.asyncStreamToBuffer(this.subprocess.stderr, stderrPath ?? null, LOG_TYPE.STDERR);
     }
   }
 
@@ -540,44 +581,105 @@ export class ManagedProcess {
   }
 
   /**
-   * Stream process output to a file with rotation
+   * Stream process output into the in-memory log buffer.
+   * Optionally also writes to a file when `filePath` is provided.
    */
-  private async asyncStreamToBuffer(stream: ReadableStream, path: string, type: import("../utils/config/constants").LogType): Promise<void> {
-    const writer = stream.getReader();
+  private async asyncStreamToBuffer(
+    stream: ReadableStream,
+    filePath: string | null,
+    type: import("../utils/config/constants").LogType
+  ): Promise<void> {
+    const reader = stream.getReader();
     const decoder = new TextDecoder();
     let bytesWritten = 0;
 
     try {
       while (true) {
-        const { done, value } = await writer.read();
+        const { done, value } = await reader.read();
         if (done) break;
-        
-        const message = decoder.decode(value);
-        
-        // Emit log event
-        this.eventEmitter.emit(createEvent(
-          EventTypeValues.PROCESS_LOG,
-          'ManagedProcess',
-          {
-            processName: this.config.name,
-            instanceId: this.instanceId,
-            message,
-            type,
-          },
-          EventPriorityValues.LOW
-        ));
 
-        // @ts-ignore - Bun.write supports append in newer versions
-        await Bun.write(path, value, { append: true });
-        
-        bytesWritten += value.length;
-        if (bytesWritten >= MEMORY_CONFIG.rotateThreshold) {
-            LogManager.rotate(path);
+        const raw = decoder.decode(value);
+        // Split on newlines so each line is its own entry
+        const lines = raw.split(/\r?\n/);
+
+        for (const line of lines) {
+          if (!line) continue;
+
+          const entry: LogEntry = {
+            timestamp: new Date().toISOString(),
+            type: type as 'stdout' | 'stderr',
+            message: line,
+          };
+
+          // Store in-memory
+          this.logBuffer.push(entry);
+
+          // Emit log event for subscribers
+          this.eventEmitter.emit(createEvent(
+            EventTypeValues.PROCESS_LOG,
+            'ManagedProcess',
+            {
+              processName: this.config.name,
+              instanceId: this.instanceId,
+              message: line,
+              type,
+            },
+            EventPriorityValues.LOW
+          ));
+        }
+
+        // Optional file write
+        if (filePath) {
+          // @ts-ignore - Bun.write supports append in newer versions
+          await Bun.write(filePath, value, { append: true });
+          bytesWritten += value.length;
+          if (bytesWritten >= MEMORY_CONFIG.rotateThreshold) {
+            LogManager.rotate(filePath);
             bytesWritten = 0;
+          }
         }
       }
     } catch (e) {
-      log.error(`${APP_CONSTANTS.LOG_PREFIX} Error writing to ${path}: ${e}`);
+      log.error(`${APP_CONSTANTS.LOG_PREFIX} Error reading stream for ${this.fullProcessName}: ${e}`);
+    }
+  }
+
+  /**
+   * Get in-memory log entries for this process
+   * @param limit - Maximum number of entries to return (most recent first)
+   */
+  getLogs(limit?: number): LogEntry[] {
+    return this.logBuffer.get(limit);
+  }
+
+  /**
+   * Clear the in-memory log buffer
+   */
+  clearLogs(): void {
+    this.logBuffer.clear();
+  }
+
+  /**
+   * Send raw text input to the process stdin.
+   * The process must have been started with stdin: 'pipe' (which is now always true).
+   * @param input - Text to send (newline will be appended if missing)
+   */
+  sendInput(input: string): boolean {
+    if (!this.subprocess || !this.subprocess.stdin) {
+      return false;
+    }
+    const sink = this.subprocess.stdin;
+    // stdin can be FileSink or a file descriptor number; only FileSink has .write()
+    if (typeof sink === 'number' || typeof (sink as any).write !== 'function') {
+      return false;
+    }
+    try {
+      const data = input.endsWith('\n') ? input : input + '\n';
+      (sink as import('bun').FileSink).write(data);
+      return true;
+    } catch (e) {
+      log.error(`${APP_CONSTANTS.LOG_PREFIX} Failed to write stdin for ${this.fullProcessName}: ${e}`);
+      return false;
     }
   }
 

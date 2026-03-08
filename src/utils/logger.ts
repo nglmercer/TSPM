@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, appendFileSync, renameSync, statSync, unlinkSync, writeFileSync, readdirSync, appendFile, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { LOG_CONFIG, ENV_VARS, APP_CONSTANTS } from "./config/constants";
+import { LOG_CONFIG, ENV_VARS, APP_CONSTANTS, getDefaultLogPath, getDefaultErrLogPath } from "./config/constants";
 
 // ... existing code ...
 
@@ -80,11 +80,9 @@ export class ProcessLogStore {
      * Get log file paths for a process
      */
     getLogPaths(processName: string): { stdout: string; stderr: string } {
-        // Remove instance suffix (e.g., "app-1" -> "app")
-        const baseName = processName.replace(/-\d+$/, '');
         return {
-            stdout: `${this.baseDir}/${baseName}.log`,
-            stderr: `${this.baseDir}/${baseName}-err.log`
+            stdout: getDefaultLogPath(processName, this.baseDir),
+            stderr: getDefaultErrLogPath(processName, this.baseDir)
         };
     }
 

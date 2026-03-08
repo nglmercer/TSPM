@@ -1,11 +1,15 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
-
+interface LogsType {
+    timestamp?: string;
+    processName?: string;
+    message?: string;
+}
 @customElement('tspm-logs')
 export class TspmLogs extends LitElement {
     @property({ type: Array }) processes: any[] = [];
     @property({ type: String }) selectedProcess = 'all';
-    @state() private logs: any[] = [];
+    @state() private logs?: LogsType[] = [];
     @state() private loading = false;
     @state() private error = '';
 
@@ -46,7 +50,7 @@ export class TspmLogs extends LitElement {
 
     private _setupListeners() {
         window.addEventListener('new-log', (e: any) => {
-            this.logs = [...this.logs.slice(-999), e.detail];
+            this.logs = [...this.logs!.slice(-999), e.detail];
             setTimeout(() => this._scrollToBottom(), 50);
         });
     }
@@ -127,7 +131,7 @@ export class TspmLogs extends LitElement {
     override render() {
         const filteredLogs = this.selectedProcess === 'all' 
             ? this.logs 
-            : this.logs.filter(l => l.processName === this.selectedProcess);
+            : this.logs!.filter(l => l.processName === this.selectedProcess);
 
         return html`
             <div class="container">
@@ -146,7 +150,7 @@ export class TspmLogs extends LitElement {
                     </div>
                 </div>
                 <div class="output">
-                    ${filteredLogs.map(log => html`
+                    ${filteredLogs!.map(log => html`
                         <div class="line">
                             <span class="timestamp">[${new Date().toLocaleTimeString()}]</span>
                             <span class="proc">[${log.processName}]</span>

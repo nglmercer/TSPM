@@ -1,10 +1,6 @@
 import { HTTP_STATUS } from "../../constants";
 import type { Router } from "../router";
 import type { ProcessConfig } from "../../../core/types";
-import { processLogStore } from "../../logger";
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { DEFAULT_PROCESS_CONFIG } from "../../config/constants";
 
 /**
  * Validate process name - must be alphanumeric with hyphens/underscores only
@@ -16,13 +12,13 @@ function isValidProcessName(name: string): boolean {
 }
 
 export function registerProcessRoutes(router: Router) {
-    const { manager } = (router as any).config;
+    const { manager } = router.config;
 
     // List all processes
     router.addRoute('GET', '/processes', async () => {
         return Response.json({
             success: true,
-            data: (router as any).getStatusesWithStats()
+            data: router.getStatusesWithStats()
         });
     });
 
@@ -149,38 +145,28 @@ export function registerProcessRoutes(router: Router) {
         }
     });
 
-    // Get all process logs combined
+    // Get all process logs combined (from in-memory buffers)
     router.addRoute('GET', '/logs', async (req) => {
         const limit = parseInt(new URL(req.url).searchParams.get('limit') || '50');
         const statuses = (router as any).getStatusesWithStats();
-        
-        let allLogs: any[] = [];
-        try {
-            for (const status of statuses) {
-                const logPath = join(DEFAULT_PROCESS_CONFIG.logDir, `${status.name}.log`);
-                if (existsSync(logPath)) {
-                    const content = readFileSync(logPath, 'utf-8');
-                    const lines = content.split('\n').filter(Boolean);
-                    const showLines = lines.slice(-limit);
-                    const mapped = showLines.map(line => ({
-                        processName: status.name,
-                        message: line,
-                        timestamp: new Date().toISOString()
-                    }));
-                    allLogs.push(...mapped);
-                }
+
+        const allLogs: any[] = [];
+        for (const status of statuses) {
+            const entries = manager.getProcessLogs(status.name, limit);
+            for (const e of entries) {
+                allLogs.push({ ...e, processName: status.name });
             }
-        } catch (e: any) {
-             console.error(`Failed to read combined logs:`, e);
         }
+        // Sort by timestamp ascending, then cap to limit
+        allLogs.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
 
         return Response.json({
             success: true,
-            data: { logs: allLogs }
+            data: { logs: allLogs.slice(-limit) }
         });
     });
 
-    // Get process logs
+    // Get process logs (from in-memory buffer)
     router.addRoute('GET', '/processes/:name/logs', async (req, params) => {
         const name = params?.['name'];
         if (!name || !isValidProcessName(name)) {
@@ -191,20 +177,49 @@ export function registerProcessRoutes(router: Router) {
         }
 
         const limit = parseInt(new URL(req.url).searchParams.get('limit') || '100');
-        
-        // Use ProcessLogStore to get both stdout and stderr logs
-        const logs = await processLogStore.getProcessLogs(name, limit);
-        
+        const logs = manager.getProcessLogs(name, limit);
+
         return Response.json({
             success: true,
             data: {
                 processName: name,
-                logs, 
+                logs,
                 limit,
                 count: logs.length
             }
         });
     });
+
+    // Send stdin input to a process
+    router.addRoute('POST', '/processes/:name/input', async (req, params) => {
+        const name = params?.['name'];
+        if (!name || !isValidProcessName(name)) {
+            return Response.json({ 
+                success: false, 
+                error: "Invalid process name" 
+            }, { status: HTTP_STATUS.BAD_REQUEST });
+        }
+
+        let input: string;
+        try {
+            const body = await req.json() as { input?: string };
+            input = body.input ?? '';
+        } catch {
+            return Response.json({ success: false, error: 'Request body must be JSON with an "input" field' }, { status: HTTP_STATUS.BAD_REQUEST });
+        }
+
+        if (!input) {
+            return Response.json({ success: false, error: '"input" field is required' }, { status: HTTP_STATUS.BAD_REQUEST });
+        }
+
+        const ok = manager.sendProcessInput(name, input);
+        if (!ok) {
+            return Response.json({ success: false, error: 'Process not found or stdin not available' }, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR });
+        }
+
+        return Response.json({ success: true, message: `Input sent to ${name}` });
+    });
+
 
     // Get single process
     router.addRoute('GET', '/processes/:name', async (req, params) => {

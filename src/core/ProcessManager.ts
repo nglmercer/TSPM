@@ -7,8 +7,10 @@ import type { HealthCheckConfig } from "../utils/healthcheck";
 import type { TSPMEvent, EventType, EventListener } from "../utils/events";
 import { 
   LOAD_BALANCE_STRATEGY, 
-  PROCESS_STATE, 
-  CLUSTER_CONFIG 
+  ProcessStateValues, 
+  CLUSTER_CONFIG,
+  getDefaultLogPath,
+  getDefaultErrLogPath 
 } from "../utils/config/constants";
 
 import { WebhookService, type WebhookConfig } from "../utils/webhooks";
@@ -70,6 +72,13 @@ export class ProcessManager {
    */
   addProcess(config: ProcessConfig, shouldSave: boolean = true): void {
     const instanceCount = config.instances || 1;
+    
+    if (!config.stdout) {
+      config.stdout = getDefaultLogPath(config.name);
+    }
+    if (!config.stderr) {
+      config.stderr = getDefaultErrLogPath(config.name);
+    }
     
     // Create/get cluster
     const cluster = this.clusterManager.getOrCreateCluster(config);
@@ -218,7 +227,7 @@ export class ProcessManager {
         memory: stats?.memory || 0,
         weight: proc.getConfig().instanceWeight || 1,
         healthy: true,
-        state: status.state || PROCESS_STATE.STOPPED,
+        state: status.state || ProcessStateValues.STOPPED,
         pid: status.pid,
         startedAt: status.uptime ? Date.now() - status.uptime : undefined,
       });
@@ -227,7 +236,7 @@ export class ProcessManager {
     return {
       name: baseName,
       totalInstances: instances.length,
-      runningInstances: instances.filter(i => i.state === PROCESS_STATE.RUNNING).length,
+      runningInstances: instances.filter(i => i.state === ProcessStateValues.RUNNING).length,
       healthyInstances: instances.filter(i => i.healthy).length,
       strategy: cluster.getStrategy(),
       instances,
@@ -339,6 +348,36 @@ export class ProcessManager {
     for (const proc of processes) {
       await proc.restart();
     }
+  }
+
+  /**
+   * Get in-memory logs for a process by name
+   * @param name Process name or base name
+   * @param limit Maximum entries to return
+   */
+  getProcessLogs(name: string, limit?: number): import('./ManagedProcess').LogEntry[] {
+    // Try direct name first, then base name lookup
+    let proc = this.registry.get(name);
+    if (!proc) {
+      const procs = this.getProcessesByBaseName(name);
+      proc = procs[0];
+    }
+    return proc ? proc.getLogs(limit) : [];
+  }
+
+  /**
+   * Send stdin input to a running process
+   * @param name Process name
+   * @param input Text to send
+   * @returns true if sent successfully
+   */
+  sendProcessInput(name: string, input: string): boolean {
+    let proc = this.registry.get(name);
+    if (!proc) {
+      const procs = this.getProcessesByBaseName(name);
+      proc = procs[0];
+    }
+    return proc ? proc.sendInput(input) : false;
   }
 
   /**
