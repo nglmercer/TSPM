@@ -111,6 +111,7 @@ export function registerDumpRoutes(router: Router) {
 
     // ─── DELETE /dump/:name ───────────────────────────────────────────────────
     // Remove a single process entry from dump.json by name.
+    // Also stops the process if it's currently running.
     router.addRoute('DELETE', '/dump/:name', async (req, params) => {
         const name = params?.['name'];
         if (!name) {
@@ -134,6 +135,17 @@ export function registerDumpRoutes(router: Router) {
         }
 
         PersistenceManager.save(data);
+
+        // Stop the process if it's currently running
+        try {
+            const process = manager.getProcess(name);
+            if (process) {
+                await manager.stopProcess(name);
+            }
+        } catch (e) {
+            // Log but don't fail the request if stop fails
+            console.error(`Failed to stop process "${name}":`, e);
+        }
 
         return Response.json({
             success: true,

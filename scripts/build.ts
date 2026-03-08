@@ -89,9 +89,9 @@ try {
   console.log('\n📦 Building standalone CLI executable (with embedded web assets)...');
 
   // Collect the built web files as additional entrypoints for embedding
-  const webAssetPaths = webFiles
-    .filter(f => !f.startsWith('_')) // exclude our generated _embed.ts
-    .map(f => join(webOutDir, f));
+  // const webAssetPaths = webFiles
+  //   .filter(f => !f.startsWith('_')) // exclude our generated _embed.ts
+  //   .map(f => join(webOutDir, f));
 
   // Use Bun.build() JS API to include both CLI entrypoint and web assets
   const result = await Bun.build({

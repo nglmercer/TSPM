@@ -140,10 +140,10 @@ export async function startApi(manager: ProcessManager, config: ApiConfig) {
             }
         }
     }
-    console.log({
-        compiled,
-        publicDir
-    })
+    // console.log({
+    //     compiled,
+    //     publicDir
+    // })
     // Create the static file handler (works for both embedded and filesystem modes)
     const serveStatic = createStaticHandler(publicDir);
 
