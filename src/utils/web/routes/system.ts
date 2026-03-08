@@ -24,11 +24,11 @@ export function registerSystemRoutes(router: Router) {
         });
     });
 
-    // Execute command
+    // Execute command - Streaming SSE version
     router.addRoute('POST', '/execute', async (req) => {
         try {
-            const body = await req.json() as { command?: string; cwd?: string };
-            const { command, cwd } = body;
+            const body = await req.json() as { command?: string; cwd?: string; stream?: boolean };
+            const { command, cwd, stream } = body;
             
             if (!command) {
                 return Response.json({ 
@@ -37,6 +37,135 @@ export function registerSystemRoutes(router: Router) {
                 }, { status: HTTP_STATUS.BAD_REQUEST });
             }
 
+            // Use streaming mode by default for better UX
+            if (stream !== false) {
+                const currentCwd = cwd || process.cwd();
+                
+                // Create a readable stream for SSE
+                const stream = new ReadableStream({
+                    async start(controller) {
+                        const encoder = new TextEncoder();
+                        
+                        const sendEvent = (event: string, data: string) => {
+                            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${data}\n\n`));
+                        };
+
+                        const sendOutput = (type: 'stdout' | 'stderr', data: string) => {
+                            sendEvent('output', JSON.stringify({ type, data }));
+                        };
+
+                        const sendComplete = (success: boolean, exitCode: number | null, error?: string) => {
+                            sendEvent('complete', JSON.stringify({ success, exitCode, error: error || '' }));
+                        };
+
+                        try {
+                            // Handle 'cd' command
+                            if (command.startsWith('cd ') || command === 'cd') {
+                                let targetDir = command.trim() === 'cd' ? (process.env.HOME || "/") : command.substring(3).trim();
+                                
+                                if (targetDir.startsWith('~')) {
+                                    const home = process.env.HOME || "/";
+                                    targetDir = targetDir.replace('~', home);
+                                }
+                                
+                                const absolutePath = isAbsolute(targetDir) ? resolve(targetDir) : resolve(currentCwd, targetDir);
+                                
+                                try {
+                                    const stats = await stat(absolutePath);
+                                    if (stats.isDirectory()) {
+                                        sendEvent('cwd', absolutePath);
+                                        sendComplete(true, 0);
+                                    } else {
+                                        throw new Error(`Not a directory: ${targetDir}`);
+                                    }
+                                } catch (e: any) {
+                                    sendComplete(false, 1, `cd: ${e.message}`);
+                                }
+                                controller.close();
+                                return;
+                            }
+
+                            // Color-test command
+                            if (command === 'color-test') {
+                                sendOutput('stdout', "\x1b[1;31mTSPM\x1b[0m \x1b[32mCOLOR\x1b[0m \x1b[34mTEST\x1b[0m \x1b[33mSUCCESSFUL\x1b[0m");
+                                sendComplete(true, 0);
+                                controller.close();
+                                return;
+                            }
+
+                            // Command Processor: Force colors
+                            let processedCommand = command;
+                            const forceColorMap: Record<string, string> = {
+                                'ls': 'ls --color=always',
+                                'grep': 'grep --color=always',
+                                'dir': 'dir --color=always',
+                                'vdir': 'vdir --color=always',
+                                'git': 'git -c color.ui=always',
+                                'diff': 'diff --color=always',
+                                'ip': 'ip -c',
+                                'dmesg': 'dmesg --color=always'
+                            };
+
+                            const cmdMatch = command.match(/^([a-zA-Z0-9_-]+)/);
+                            if (cmdMatch && cmdMatch[1]) {
+                                const baseCmd = cmdMatch[1];
+                                const forced = forceColorMap[baseCmd];
+                                if (forced && !command.includes('--color') && !command.includes('-c color.ui')) {
+                                    processedCommand = command.replace(baseCmd, forced);
+                                }
+                            }
+
+                            // Run command with streaming
+                            const proc = Bun.spawn(["sh", "-c", processedCommand], {
+                                cwd: currentCwd,
+                                stdout: "pipe",
+                                stderr: "pipe",
+                                env: {
+                                    ...process.env,
+                                    FORCE_COLOR: "1",
+                                    TERM: "xterm-256color",
+                                    COLORTERM: "truecolor",
+                                    CLICOLOR_FORCE: "1",
+                                    CLICOLOR: "1"
+                                }
+                            });
+
+                            // Stream stdout
+                            proc.stdout?.pipeTo(new WritableStream({
+                                write(chunk) {
+                                    sendOutput('stdout', new TextDecoder().decode(chunk));
+                                }
+                            }));
+
+                            // Stream stderr
+                            proc.stderr?.pipeTo(new WritableStream({
+                                write(chunk) {
+                                    sendOutput('stderr', new TextDecoder().decode(chunk));
+                                }
+                            }));
+
+                            // Wait for exit and send complete
+                            const exitCode = await proc.exited;
+                            sendComplete(exitCode === 0, exitCode);
+
+                        } catch (e: any) {
+                            sendComplete(false, null, e.message);
+                        }
+                        
+                        controller.close();
+                    }
+                });
+
+                return new Response(stream, {
+                    headers: {
+                        'Content-Type': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive'
+                    }
+                });
+            }
+
+            // Non-streaming fallback (original behavior)
             const currentCwd = cwd || process.cwd();
 
             // Color-test command for debugging

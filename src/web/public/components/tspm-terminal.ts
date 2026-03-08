@@ -12,6 +12,7 @@ export class TspmTerminal extends LitElement {
 
     @state() private suggestions: string[] = [];
     @state() private suggestionIndex = -1;
+    @state() private isExecuting = false;
 
     @query('.output') private outputEl?: HTMLElement;
     @query('input') private inputEl?: HTMLInputElement;
@@ -208,6 +209,11 @@ export class TspmTerminal extends LitElement {
             margin: 0;
         }
 
+        input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .suggestions {
             position: absolute;
             bottom: 100%;
@@ -235,6 +241,28 @@ export class TspmTerminal extends LitElement {
         .suggestion.selected {
             background: #6366f1;
             color: #fff;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #888;
+            font-size: 0.85rem;
+            padding: 4px 0;
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #333;
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     `;
 
@@ -277,45 +305,107 @@ export class TspmTerminal extends LitElement {
             (e.target as HTMLInputElement).value = '';
             this._notifyChange();
 
+            // Show loading indicator
+            this.isExecuting = true;
+            this._notifyChange();
+
             try {
-                const res = await fetch('/api/v1/execute', {
+                // Use streaming SSE for real-time output
+                const response = await fetch('/api/v1/execute', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         command: cmd,
-                        cwd: this.currentCwd
+                        cwd: this.currentCwd,
+                        stream: true
                     })
                 });
-                const data = await res.json();
-                
-                // Handle both success with output/error and failure cases
-                if (data.success) {
-                    if (data.newCwd) {
-                        this.currentCwd = data.newCwd;
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    this.history = [...this.history, { text: errorData.error || 'Execution failed', type: 'error' }];
+                    this.isExecuting = false;
+                    this._notifyChange();
+                    return;
+                }
+
+                // Read the stream
+                const reader = response.body?.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                // Parse SSE events
+                const parseSSE = (text: string) => {
+                    const events: { event?: string; data: string }[] = [];
+                    const parts = text.split('\n\n');
+                    
+                    for (const part of parts) {
+                        const lines = part.split('\n');
+                        let eventType = 'message';
+                        let data = '';
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('event:')) {
+                                eventType = line.substring(6).trim();
+                            } else if (line.startsWith('data:')) {
+                                data = line.substring(5).trim();
+                            }
+                        }
+                        
+                        if (data) {
+                            events.push({ event: eventType, data });
+                        }
                     }
-                    // Display output if present
-                    if (data.output) {
-                        this.history = [...this.history, { text: data.output, type: 'output' }];
-                    }
-                    // Display error (stderr) if present - command ran but produced stderr
-                    if (data.error) {
-                        this.history = [...this.history, { text: data.error, type: 'error' }];
-                    }
-                    // Also check exitCode - if non-zero, treat as error
-                    if (data.exitCode !== null && data.exitCode !== 0) {
-                        const errorMsg = data.error || `Command exited with code ${data.exitCode}`;
-                        this.history = [...this.history, { text: errorMsg, type: 'error' }];
-                    }
-                } else {
-                    if (data.error) {
-                        this.history = [...this.history, { text: data.error, type: 'error' }];
+                    return events;
+                };
+
+                if (reader) {
+                    try {
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            
+                            buffer += decoder.decode(value, { stream: true });
+                            const events = parseSSE(buffer);
+                            
+                            for (const evt of events) {
+                                try {
+                                    const parsed = JSON.parse(evt.data);
+                                    
+                                    if (evt.event === 'output') {
+                                        // Stream output in real-time
+                                        const outputType = parsed.type === 'stderr' ? 'error' : 'output';
+                                        this.history = [...this.history, { text: parsed.data, type: outputType }];
+                                        this._scrollToBottom();
+                                    } else if (evt.event === 'cwd') {
+                                        this.currentCwd = parsed;
+                                    } else if (evt.event === 'complete') {
+                                        // Command completed
+                                        this.isExecuting = false;
+                                        if (!parsed.success) {
+                                            this.history = [...this.history, { text: parsed.error || `Command failed with exit code ${parsed.exitCode}`, type: 'error' }];
+                                        }
+                                    }
+                                } catch (e) {
+                                    // Skip malformed JSON
+                                }
+                            }
+                            
+                            // Keep incomplete data in buffer
+                            const lastComplete = buffer.lastIndexOf('\n\n');
+                            if (lastComplete >= 0) {
+                                buffer = buffer.substring(lastComplete + 2);
+                            }
+                        }
+                    } catch (e) {
+                        // Stream ended
                     }
                 }
-                
+
                 this._notifyChange();
-                this._scrollToBottom();
             } catch (err) {
                 this.history = [...this.history, { text: 'Execution failed', type: 'error' }];
+                this.isExecuting = false;
                 this._notifyChange();
             }
         }
@@ -461,6 +551,12 @@ export class TspmTerminal extends LitElement {
                     ${this.history.map(line => html`
                         <div class="line ${line.type}">${line.type === 'input' ? html`<span style="color: #6366f1; user-select: none;">$ </span>` : ''}${unsafeHTML(this._ansiToHtml(line.text))}</div>
                     `)}
+                    ${this.isExecuting ? html`
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <span>Executing...</span>
+                        </div>
+                    ` : ''}
                 </div>
                 <div class="input-area">
                     ${this.suggestions.length > 0 ? html`
@@ -479,6 +575,7 @@ export class TspmTerminal extends LitElement {
                         @keydown="${this._handleKey}"
                         spellcheck="false"
                         autocomplete="off"
+                        ?disabled="${this.isExecuting}"
                     />
                 </div>
             </div>
