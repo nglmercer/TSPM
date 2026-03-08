@@ -42,6 +42,8 @@ export interface ProcessFormConfig {
     instances?: number;
     args?: string[];
     namespace?: string;
+    install?: string;
+    build?: string;
 }
 
 // ============================================
@@ -239,6 +241,8 @@ export interface DumpProcess {
     instances?: string | number;
     namespace?: string;
     args?: string[];
+    install?: string;
+    build?: string;
     env?: Record<string, string>;
 }
 
@@ -253,9 +257,140 @@ export interface Profile {
 }
 
 /**
- * Toast notification structure
+ * Form field configuration for dynamic form generation
  */
-export interface ToastMessage {
-    msg: string;
-    ok: boolean;
+export interface FormFieldConfig {
+    name: string;
+    type: 'string' | 'number' | 'boolean' | 'string[]' | 'Record';
+    required: boolean;
+    label: string;
+    placeholder?: string;
+    description?: string;
+    defaultValue?: unknown;
+    options?: { value: string; label: string }[];
+    group?: string;
+}
+
+/**
+ * Full Process Configuration (matches server-side ProcessConfigSchema)
+ */
+export interface ProcessConfig {
+    // Required
+    name: string;
+    script: string;
+    
+    // Basic
+    args?: string[];
+    interpreter?: string;
+    env?: Record<string, string>;
+    cwd?: string;
+    
+    // Restart Behavior
+    autorestart?: boolean;
+    watch?: boolean | string[];
+    ignoreWatch?: string[];
+    maxRestarts?: number;
+    minRestartDelay?: number;
+    maxRestartDelay?: number;
+    restartBackoff?: number;
+    restartDelay?: number;
+    
+    // Logging
+    stdout?: string;
+    stderr?: string;
+    combineLogs?: boolean;
+    mergeLogs?: boolean;
+    logDateFormat?: string;
+    
+    // Runtime
+    instances?: number;
+    cron?: string;
+    killTimeout?: number;
+    listenTimeout?: number;
+    waitReady?: boolean;
+    
+    // Process Management
+    namespace?: string;
+    user?: string;
+    group?: string;
+    nice?: number;
+    
+    // Clustering
+    lbStrategy?: string;
+    instanceWeight?: number;
+    instanceVar?: string;
+    
+    // Health Check
+    healthCheck?: HealthCheckConfig;
+    
+    // Metadata
+    instanceId?: number;
+    clusterGroup?: string;
+    dotEnv?: string;
+    
+    // Lifecycle Scripts
+    preStart?: string;
+    install?: string;
+    build?: string;
+    postStart?: string;
+    
+    // Resource Limits
+    maxMemory?: number;
+    minUptime?: number;
+    watchDelay?: number;
+    
+    // Labels & Annotations
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+    
+    // Infrastructure
+    kubernetes?: KubernetesConfig;
+    docker?: DockerConfig;
+}
+
+/**
+ * Health check configuration
+ */
+export interface HealthCheckConfig {
+    enabled?: boolean;
+    protocol?: string;
+    url?: string;
+    host?: string;
+    port?: number;
+    path?: string;
+    method?: string;
+    timeout?: number;
+    interval?: number;
+    retries?: number;
+    initialDelay?: number;
+    command?: string;
+    expectedStatus?: number;
+    responseBody?: string;
+}
+
+/**
+ * Kubernetes configuration
+ */
+export interface KubernetesConfig {
+    enabled?: boolean;
+    podName?: string;
+    podNamespace?: string;
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+    containerName?: string;
+    livenessProbe?: string;
+    readinessProbe?: string;
+    startupProbe?: string;
+}
+
+/**
+ * Docker configuration
+ */
+export interface DockerConfig {
+    enabled?: boolean;
+    containerName?: string;
+    labels?: Record<string, string>;
+    restartPolicy?: string;
+    memoryLimit?: string;
+    cpuLimit?: string;
 }

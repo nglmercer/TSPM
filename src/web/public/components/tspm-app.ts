@@ -31,6 +31,53 @@ export class TspmApp extends LitElement {
         }) as EventListener);
 
         this.addEventListener('refresh-required', () => this.fetchData());
+
+        this.addEventListener('edit-process-config', ((e: CustomEvent<string>) => {
+            this._handleEditProcess(e.detail);
+        }) as EventListener);
+
+        this.addEventListener('delete-process', ((e: CustomEvent<string>) => {
+            this._handleDeleteProcess(e.detail);
+        }) as EventListener);
+    }
+
+    private async _handleEditProcess(name: string) {
+        try {
+            const res = await fetch(`/api/v1/dump`);
+            const d = await res.json();
+            if (d.success) {
+                const processes = d.data?.processes ?? [];
+                const proc = processes.find((p: any) => p.name === name);
+                if (proc) {
+                    this.modal.processName = name;
+                    this.modal.editProcess = proc;
+                    this.modal.editMode = true;
+                    this.modal.isOpen = true;
+                } else {
+                    console.error(`Process ${name} not found in dump`);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch process config for editing', err);
+        }
+    }
+
+    private async _handleDeleteProcess(name: string) {
+        if (!confirm(`Are you sure you want to delete process "${name}"? This will stop it and remove it from configuration.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/v1/dump/${encodeURIComponent(name)}`, { method: 'DELETE' });
+            const d = await res.json();
+            if (d.success) {
+                this.fetchData();
+            } else {
+                alert(d.error || 'Delete failed');
+            }
+        } catch (err) {
+            console.error('Failed to delete process', err);
+        }
     }
 
     connect() {

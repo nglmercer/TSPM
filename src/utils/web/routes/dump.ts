@@ -57,6 +57,11 @@ export function registerDumpRoutes(router: Router) {
         // Persist to disk
         PersistenceManager.save({ processes: body.processes });
 
+        // Update in-memory manager for each process
+        for (const proc of body.processes) {
+            manager.addProcess(proc, false);
+        }
+
         return Response.json({
             success: true,
             message: `Dump updated with ${body.processes.length} process(es)`,
@@ -102,6 +107,9 @@ export function registerDumpRoutes(router: Router) {
         data.processes[idx] = updated;
         PersistenceManager.save(data);
 
+        // Update in-memory manager registry
+        manager.addProcess(updated, false);
+
         return Response.json({
             success: true,
             message: `Process "${name}" updated in dump`,
@@ -136,15 +144,12 @@ export function registerDumpRoutes(router: Router) {
 
         PersistenceManager.save(data);
 
-        // Stop the process if it's currently running
+        // Remove from manager (this also stops it)
         try {
-            const process = manager.getProcess(name);
-            if (process) {
-                await manager.stopProcess(name);
-            }
+            await manager.removeProcess(name);
         } catch (e) {
-            // Log but don't fail the request if stop fails
-            console.error(`Failed to stop process "${name}":`, e);
+            // Log but don't fail the request if remove fails
+            console.error(`Failed to remove process "${name}":`, e);
         }
 
         return Response.json({
