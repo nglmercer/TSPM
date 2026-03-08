@@ -19,7 +19,7 @@ import {
   type ProcessState
 } from "../utils/config/constants";
 import { getProcessStats, type ProcessStats } from "../utils/stats";
-import { LogManager, log } from "../utils/logger";
+import { LogManager, log, eventLogger } from "../utils/logger";
 import { EventEmitter, EventTypeValues, EventPriorityValues, createEvent, getDefaultEmitter } from "../utils/events";
 
 export class ManagedProcess {
@@ -131,19 +131,39 @@ export class ManagedProcess {
     } as Record<string, string>;
 
     const cmd = [...(this.config.args || [])];
-    let interpreter = this.config.script;
+    let interpreter = this.config.interpreter;
+    let script = this.config.script;
 
-    // Use bun as default interpreter for JS/TS scripts if not explicitly provided
-    if (this.config.script.endsWith(SCRIPT_EXTENSIONS.TYPESCRIPT) || this.config.script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
-      interpreter = APP_CONSTANTS.DEFAULT_INTERPRETER;
-      cmd.unshift(this.config.script);
-      
-      // For Bun source maps
-      env[BUN_ENV_VARS.VERBOSE_SOURCE_MAPS] = "true";
-      
-      if (this.config.script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
-        env[NODE_ENV_VARS.NODE_OPTIONS] = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
+    // Logic to determine what to run
+    if (!interpreter) {
+      // Use bun as default interpreter for JS/TS scripts if not explicitly provided
+      if (script.endsWith(SCRIPT_EXTENSIONS.TYPESCRIPT) || script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
+        interpreter = APP_CONSTANTS.DEFAULT_INTERPRETER;
+        cmd.unshift(script);
+        
+        // For Bun source maps
+        env[BUN_ENV_VARS.VERBOSE_SOURCE_MAPS] = "true";
+        
+        if (script.endsWith(SCRIPT_EXTENSIONS.JAVASCRIPT)) {
+          env[NODE_ENV_VARS.NODE_OPTIONS] = `${env.NODE_OPTIONS || ''} --enable-source-maps`.trim();
+        }
+      } else {
+        // If no interpreter and not a JS/TS script, check if it's a complex command
+        if (script.includes(' ') && !script.startsWith('./') && !script.startsWith('/')) {
+            // It looks like a command string e.g. "bun run start"
+            interpreter = 'sh';
+            cmd.unshift('-c', script);
+        } else {
+            // It's likely a binary or script we can execute directly
+            interpreter = script;
+        }
       }
+    } else if (interpreter === 'none') {
+        // Explicitly no interpreter, run script directly
+        interpreter = script;
+    } else {
+        // Use provided interpreter
+        cmd.unshift(script);
     }
 
     this.subprocess = spawn({
@@ -391,6 +411,13 @@ export class ManagedProcess {
         },
         EventPriorityValues.NORMAL
       ));
+
+      // Log to persistent event history
+      await eventLogger.log("process:stop", { 
+          name: this.config.name, 
+          instance: this.instanceId, 
+          pid: this.subprocess.pid 
+      });
     }
     
     this.setState(PROCESS_STATE.STOPPED);
@@ -570,6 +597,14 @@ export class ManagedProcess {
       },
       EventPriorityValues.HIGH
     ));
+
+    // Log to persistent event history
+    await eventLogger.log("process:exit", { 
+        name: this.config.name, 
+        instance: this.instanceId, 
+        exitCode, 
+        signal: signalCode 
+    });
     
     if (this.isManuallyStopped) {
       this.setState(PROCESS_STATE.STOPPED);

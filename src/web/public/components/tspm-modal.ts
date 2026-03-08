@@ -110,7 +110,13 @@ export class TspmModal extends LitElement {
     private async _handleSubmit(e: SubmitEvent) {
         e.preventDefault();
         const formData = new FormData(e.target as HTMLFormElement);
-        const config = Object.fromEntries(formData.entries());
+        const config: any = Object.fromEntries(formData.entries());
+
+        if (config.args) {
+            config.args = config.args.split(' ').filter((a: string) => a.trim() !== '');
+        } else {
+            delete config.args;
+        }
 
         try {
             const res = await fetch(`/api/v1/processes`, {
@@ -143,23 +149,34 @@ export class TspmModal extends LitElement {
                             <label>Name</label>
                             <input type="text" name="name" placeholder="my-awesome-api" required />
                         </div>
+                        <div class="form-group">
+                            <label>Script, Command or Binary</label>
+                            <input type="text" name="script" placeholder="./src/index.ts or bun run start" required />
+                        </div>
                         <div class="row">
-                            <div class="form-group">
-                                <label>Script Path</label>
-                                <input type="text" name="script" placeholder="./src/index.ts" required />
-                            </div>
                             <div class="form-group">
                                 <label>Interpreter</label>
                                 <select name="interpreter">
+                                    <option value="">Auto-detect</option>
                                     <option value="bun">Bun</option>
                                     <option value="node">Node</option>
+                                    <option value="python">Python</option>
+                                    <option value="sh">Shell (sh)</option>
+                                    <option value="none">None (Binary)</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Instances</label>
+                                <input type="number" name="instances" value="1" min="1" />
                             </div>
                         </div>
                         <div class="row">
                             <div class="form-group">
-                                <label>Instances</label>
-                                <input type="number" name="instances" value="1" min="1" />
+                                <label>Arguments (Space separated)</label>
+                                <input type="text" name="args" placeholder="--port 8080" @change="${(e: any) => {
+                                    // We'll handle splitting on the backend or here?
+                                    // Let's handle it here to satisfy the API
+                                }}" />
                             </div>
                             <div class="form-group">
                                 <label>Namespace</label>

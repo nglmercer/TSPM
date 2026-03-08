@@ -1,12 +1,70 @@
 /**
  * Log Management Utility
  * Handles log rotation, structured logging, and multiple log levels
- * @module utils/logger
  */
 
-import { existsSync, mkdirSync, appendFileSync, renameSync, statSync, unlinkSync, writeFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, appendFileSync, renameSync, statSync, unlinkSync, writeFileSync, readdirSync, appendFile } from "node:fs";
 import { join, dirname } from "node:path";
-import { LOG_CONFIG, ENV_VARS } from "./config/constants";
+import { LOG_CONFIG, ENV_VARS, APP_CONSTANTS } from "./config/constants";
+
+// ... existing code ...
+
+/**
+ * Logger for persistent historical events (starts, stops, errors)
+ */
+export class PersistentEventLogger {
+    private file: string;
+
+    constructor(filename: string = "history.jsonl") {
+        const logDir = join(process.cwd(), "logs");
+        if (!existsSync(logDir)) {
+            mkdirSync(logDir, { recursive: true });
+        }
+        this.file = join(logDir, filename);
+    }
+
+    /**
+     * Log an event to the persistent storage
+     */
+    async log(eventType: string, data: any): Promise<void> {
+        const entry = {
+            timestamp: new Date().toISOString(),
+            type: eventType,
+            ...data
+        };
+
+        const line = JSON.stringify(entry) + "\n";
+        
+        return new Promise((resolve) => {
+            appendFile(this.file, line, (err) => {
+                if (err) {
+                    console.error(`[TSPM] Failed to write event history: ${err.message}`);
+                }
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Read recent events
+     */
+    async getRecent(limit: number = 100): Promise<any[]> {
+        if (!existsSync(this.file)) return [];
+        
+        try {
+            const file = Bun.file(this.file);
+            const content = await file.text();
+            const lines = content.trim().split("\n");
+            return lines
+                .slice(-limit)
+                .map(l => JSON.parse(l));
+        } catch (e) {
+            return [];
+        }
+    }
+}
+
+export const eventLogger = new PersistentEventLogger();
 
 /**
  * Log level values

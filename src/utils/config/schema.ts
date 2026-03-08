@@ -146,6 +146,8 @@ export const ProcessConfigSchema = type({
   'script': 'string>0',
   /** Command line arguments */
   'args?': 'string[]',
+  /** Interpreter to use (e.g. bun, node, python) */
+  'interpreter?': 'string',
   /** Environment variables */
   'env?': 'Record<string, string>',
   /** Current working directory */
