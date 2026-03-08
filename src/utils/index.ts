@@ -96,6 +96,10 @@ export {
   getLogger,
   createLogger,
   log,
+  PersistentEventLogger,
+  ProcessLogStore,
+  processLogStore,
+  eventLogger,
 } from './logger';
 
 export type {

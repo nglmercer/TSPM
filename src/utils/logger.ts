@@ -1,12 +1,170 @@
 /**
  * Log Management Utility
  * Handles log rotation, structured logging, and multiple log levels
- * @module utils/logger
  */
 
-import { existsSync, mkdirSync, appendFileSync, renameSync, statSync, unlinkSync, writeFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, appendFileSync, renameSync, statSync, unlinkSync, writeFileSync, readdirSync, appendFile, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { LOG_CONFIG, ENV_VARS } from "./config/constants";
+import { LOG_CONFIG, ENV_VARS, APP_CONSTANTS, getDefaultLogPath, getDefaultErrLogPath } from "./config/constants";
+
+// ... existing code ...
+
+/**
+ * Logger for persistent historical events (starts, stops, errors)
+ */
+export class PersistentEventLogger {
+    private file: string;
+
+    constructor(filename: string = "history.jsonl") {
+        const logDir = join(process.cwd(), "logs");
+        if (!existsSync(logDir)) {
+            mkdirSync(logDir, { recursive: true });
+        }
+        this.file = join(logDir, filename);
+    }
+
+    /**
+     * Log an event to the persistent storage
+     */
+    async log(eventType: string, data: any): Promise<void> {
+        const entry = {
+            timestamp: new Date().toISOString(),
+            type: eventType,
+            ...data
+        };
+
+        const line = JSON.stringify(entry) + "\n";
+        
+        return new Promise((resolve) => {
+            appendFile(this.file, line, (err) => {
+                if (err) {
+                    console.error(`[TSPM] Failed to write event history: ${err.message}`);
+                }
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Read recent events
+     */
+    async getRecent(limit: number = 100): Promise<any[]> {
+        if (!existsSync(this.file)) return [];
+        
+        try {
+            const file = Bun.file(this.file);
+            const content = await file.text();
+            const lines = content.trim().split("\n");
+            return lines
+                .slice(-limit)
+                .map(l => JSON.parse(l));
+        } catch (e) {
+            return [];
+        }
+    }
+}
+
+export const eventLogger = new PersistentEventLogger();
+
+/**
+ * Process Log Store - reads and manages process stdout/stderr logs from files
+ */
+export class ProcessLogStore {
+    private baseDir: string;
+
+    constructor(baseDir: string = 'logs') {
+        this.baseDir = baseDir;
+    }
+
+    /**
+     * Get log file paths for a process
+     */
+    getLogPaths(processName: string): { stdout: string; stderr: string } {
+        return {
+            stdout: getDefaultLogPath(processName, this.baseDir),
+            stderr: getDefaultErrLogPath(processName, this.baseDir)
+        };
+    }
+
+    /**
+     * Read logs from a file with optional limit
+     */
+    async readLogFile(path: string, limit: number = 100): Promise<string[]> {
+        try {
+            const file = Bun.file(path);
+            if (!await file.exists()) {
+                return [];
+            }
+
+            const content = await file.text();
+            if (!content.trim()) {
+                return [];
+            }
+
+            const lines = content.split('\n').filter(line => line.trim());
+            
+            // Return the last 'limit' lines
+            return lines.slice(-limit);
+        } catch (e) {
+            console.error(`[TSPM] Failed to read log file ${path}: ${e}`);
+            return [];
+        }
+    }
+
+    /**
+     * Read combined stdout and stderr logs for a process
+     */
+    async getProcessLogs(processName: string, limit: number = 100): Promise<any[]> {
+        const { stdout, stderr } = this.getLogPaths(processName);
+        
+        const [stdoutLines, stderrLines] = await Promise.all([
+            this.readLogFile(stdout, limit),
+            this.readLogFile(stderr, limit)
+        ]);
+
+        // Interleave stdout and stderr with type markers
+        const logs: any[] = [];
+        const allLines = [
+            ...stdoutLines.map(line => ({ type: 'stdout', content: line })),
+            ...stderrLines.map(line => ({ type: 'stderr', content: line }))
+        ];
+
+        // Sort by position (simple approach - just interleave)
+        // For better sorting, we'd need timestamps in the logs
+        for (const line of allLines) {
+            logs.push({
+                timestamp: new Date().toISOString(),
+                processName,
+                type: line.type,
+                message: line.content
+            });
+        }
+
+        // Return limited results
+        return logs.slice(-limit);
+    }
+
+    /**
+     * Get all available log files in the logs directory
+     */
+    async getAvailableLogs(): Promise<string[]> {
+        try {
+            if (!existsSync(this.baseDir)) {
+                return [];
+            }
+
+            const files = readdirSync(this.baseDir);
+            return files
+                .filter((f: string) => f.endsWith('.log') || f.endsWith('-err.log'))
+                .map((f: string) => f.replace(/\.log$/, '').replace(/-err$/, ''))
+                .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i); // Unique base names
+        } catch (e) {
+            return [];
+        }
+    }
+}
+
+export const processLogStore = new ProcessLogStore();
 
 /**
  * Log level values

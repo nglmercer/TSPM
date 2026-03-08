@@ -16,6 +16,7 @@ export * from './prettylist';
 export * from './serve';
 export * from './report';
 export * from './deploy';
+export * from './web';
 
 import { startCommand } from './start';
 import { stopCommand } from './stop';

@@ -2,21 +2,21 @@ import { expect, test, describe } from "bun:test";
 import { ProcessManager } from "../../src/core/ProcessManager";
 
 describe("ProcessManager", () => {
-    test("should add and remove processes", () => {
-        const manager = new ProcessManager();
+    test("should add and remove processes", async () => {
+        const manager = new ProcessManager({ loadState: false });
         const config = { name: "test", script: "echo 1" };
         
         manager.addProcess(config);
         expect(manager.hasProcess("test")).toBe(true);
         expect(manager.processCount).toBe(1);
         
-        manager.removeProcess("test");
+        await manager.removeProcess("test");
         expect(manager.hasProcess("test")).toBe(false);
         expect(manager.processCount).toBe(0);
     });
 
     test("should get process by name", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         const config = { name: "test", script: "echo 1" };
         manager.addProcess(config);
         
@@ -26,7 +26,7 @@ describe("ProcessManager", () => {
     });
 
     test("should get statuses", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "p1", script: "echo 1" });
         manager.addProcess({ name: "p2", script: "echo 2" });
         
@@ -37,7 +37,7 @@ describe("ProcessManager", () => {
     });
 
     test("should add multiple instances", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         const config = { name: "multi", script: "echo", instances: 3 };
         
         manager.addProcess(config);
@@ -48,7 +48,7 @@ describe("ProcessManager", () => {
     });
 
     test("should create cluster for multiple instances", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         const config = { name: "clustered", script: "echo", instances: 3 };
         
         manager.addProcess(config);
@@ -57,7 +57,7 @@ describe("ProcessManager", () => {
     });
 
     test("should not create cluster for single instance", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         const config = { name: "single", script: "echo" };
         
         manager.addProcess(config);
@@ -66,7 +66,7 @@ describe("ProcessManager", () => {
     });
 
     test("should get process by instance", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         const config = { name: "test", script: "echo", instances: 3 };
         manager.addProcess(config);
         
@@ -76,7 +76,7 @@ describe("ProcessManager", () => {
     });
 
     test("should get processes by namespace", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "p1", script: "echo", namespace: "ns1" });
         manager.addProcess({ name: "p2", script: "echo", namespace: "ns1" });
         manager.addProcess({ name: "p3", script: "echo", namespace: "ns2" });
@@ -90,7 +90,7 @@ describe("ProcessManager", () => {
     });
 
     test("should get processes by cluster group", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "p1", script: "echo", clusterGroup: "group1" });
         manager.addProcess({ name: "p2", script: "echo", clusterGroup: "group1" });
         
@@ -102,7 +102,7 @@ describe("ProcessManager", () => {
     });
 
     test("should get cluster info", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "clustered", script: "echo", instances: 2 });
         
         const info = manager.getClusterInfo("clustered");
@@ -113,14 +113,14 @@ describe("ProcessManager", () => {
     });
 
     test("should return null for non-existent cluster info", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         
         const info = manager.getClusterInfo("nonexistent");
         expect(info).toBeNull();
     });
 
     test("should get process groups", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "p1", script: "echo", namespace: "ns1" });
         manager.addProcess({ name: "p2", script: "echo", clusterGroup: "group1" });
         
@@ -129,7 +129,7 @@ describe("ProcessManager", () => {
     });
 
     test("should get next instance", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "lb-test", script: "echo", instances: 3 });
         
         const instance = manager.getNextInstance("lb-test");
@@ -137,7 +137,7 @@ describe("ProcessManager", () => {
     });
 
     test("should get cluster by name", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "clustered", script: "echo", instances: 2 });
         
         const cluster = manager.getCluster("clustered");
@@ -145,7 +145,7 @@ describe("ProcessManager", () => {
     });
 
     test("should get all clusters", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "c1", script: "echo", instances: 2 });
         manager.addProcess({ name: "c2", script: "echo", instances: 2 });
         
@@ -153,19 +153,19 @@ describe("ProcessManager", () => {
         expect(clusters.size).toBe(2);
     });
 
-    test("should remove by namespace", () => {
-        const manager = new ProcessManager();
+    test("should remove by namespace", async () => {
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "p1", script: "echo", namespace: "to-delete" });
         manager.addProcess({ name: "p2", script: "echo", namespace: "to-delete" });
         
-        manager.removeByNamespace("to-delete");
+        await manager.removeByNamespace("to-delete");
         
         const procs = manager.getProcessesByNamespace("to-delete");
         expect(procs).toHaveLength(0);
     });
 
     test("should scale process up", async () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "scale-test", script: "sleep 1", instances: 1 });
         
         expect(manager.processCount).toBe(1);
@@ -177,7 +177,7 @@ describe("ProcessManager", () => {
     });
 
     test("should check hasProcess for instance", () => {
-        const manager = new ProcessManager();
+        const manager = new ProcessManager({ loadState: false });
         manager.addProcess({ name: "test", script: "echo", instances: 3 });
         
         expect(manager.hasProcess("test-1")).toBe(true);

@@ -7,13 +7,16 @@ import type { HealthCheckConfig } from "../utils/healthcheck";
 import type { TSPMEvent, EventType, EventListener } from "../utils/events";
 import { 
   LOAD_BALANCE_STRATEGY, 
-  PROCESS_STATE, 
-  CLUSTER_CONFIG 
+  ProcessStateValues, 
+  CLUSTER_CONFIG,
+  getDefaultLogPath,
+  getDefaultErrLogPath 
 } from "../utils/config/constants";
 
 import { WebhookService, type WebhookConfig } from "../utils/webhooks";
 import { ProcessRegistry } from "./ProcessRegistry";
 import { ClusterManager } from "./ClusterManager";
+import { PersistenceManager } from "../utils/persistence";
   
 export class ProcessManager {
   private registry: ProcessRegistry = new ProcessRegistry();
@@ -25,6 +28,7 @@ export class ProcessManager {
   constructor(options?: { 
     monitoring?: MonitoringServiceOptions;
     webhooks?: WebhookConfig[];
+    loadState?: boolean;
   }) {
     this.eventEmitter = getDefaultEmitter();
     if (options?.monitoring) {
@@ -37,14 +41,44 @@ export class ProcessManager {
         this.webhookService?.send(event);
       });
     }
+
+    // Load persisted processes (skip in test mode)
+    if (options?.loadState !== false) {
+      this.loadState();
+    }
+  }
+
+  private loadState(): void {
+    const data = PersistenceManager.load();
+    if (data && Array.isArray(data.processes)) {
+      for (const procConfig of data.processes) {
+        this.addProcess(procConfig, false);
+      }
+    }
+  }
+
+  private saveState(): void {
+    const configs = this.registry.getAll()
+      .filter(p => p.getInstanceId() === 0)
+      .map(p => p.getConfig());
+    
+    PersistenceManager.save({ processes: configs });
   }
 
   /**
    * Add a new process to be managed
    * @param config Process configuration
+   * @param shouldSave Whether to save state after adding
    */
-  addProcess(config: ProcessConfig): void {
+  addProcess(config: ProcessConfig, shouldSave: boolean = true): void {
     const instanceCount = config.instances || 1;
+    
+    if (!config.stdout) {
+      config.stdout = getDefaultLogPath(config.name);
+    }
+    if (!config.stderr) {
+      config.stderr = getDefaultErrLogPath(config.name);
+    }
     
     // Create/get cluster
     const cluster = this.clusterManager.getOrCreateCluster(config);
@@ -59,7 +93,11 @@ export class ProcessManager {
           cluster.addInstance(i, {
             weight: config.instanceWeight || 1,
           });
-        }
+         }
+    }
+
+    if (shouldSave) {
+        this.saveState();
     }
   }
 
@@ -98,11 +136,11 @@ export class ProcessManager {
    * Remove a process from management
    * @param name Process name or base name (to remove all instances)
    */
-  removeProcess(name: string): void {
+  async removeProcess(name: string): Promise<void> {
     const process = this.registry.get(name);
     if (process) {
       const config = process.getConfig();
-      process.stop();
+      await process.stop();
       this.registry.delete(name);
       
       // Remove from cluster
@@ -114,13 +152,14 @@ export class ProcessManager {
           this.clusterManager.removeCluster(config.name);
         }
       }
+      this.saveState();
     } else {
       // Check if it's a base name for multiple instances
       for (const proc of this.registry.getAll()) {
         const config = proc.getConfig();
         if (config.name === name) {
           const procName = proc.getInstanceId() > 0 ? `${config.name}-${proc.getInstanceId()}` : config.name;
-          proc.stop();
+          await proc.stop();
           this.registry.delete(procName);
           
           // Remove from cluster
@@ -148,12 +187,12 @@ export class ProcessManager {
    * Remove all processes in a namespace
    * @param namespace Namespace to remove
    */
-  removeByNamespace(namespace: string): void {
+  async removeByNamespace(namespace: string): Promise<void> {
     const procs = this.getProcessesByNamespace(namespace);
     for (const proc of procs) {
       const config = proc.getConfig();
       const name = proc.getInstanceId() > 0 ? `${config.name}-${proc.getInstanceId()}` : config.name;
-      proc.stop();
+      await proc.stop();
       this.registry.delete(name);
     }
   }
@@ -188,7 +227,7 @@ export class ProcessManager {
         memory: stats?.memory || 0,
         weight: proc.getConfig().instanceWeight || 1,
         healthy: true,
-        state: status.state || PROCESS_STATE.STOPPED,
+        state: status.state || ProcessStateValues.STOPPED,
         pid: status.pid,
         startedAt: status.uptime ? Date.now() - status.uptime : undefined,
       });
@@ -197,7 +236,7 @@ export class ProcessManager {
     return {
       name: baseName,
       totalInstances: instances.length,
-      runningInstances: instances.filter(i => i.state === PROCESS_STATE.RUNNING).length,
+      runningInstances: instances.filter(i => i.state === ProcessStateValues.RUNNING).length,
       healthyInstances: instances.filter(i => i.healthy).length,
       strategy: cluster.getStrategy(),
       instances,
@@ -260,9 +299,9 @@ export class ProcessManager {
   /**
    * Stop all managed processes
    */
-  stopAll(): void {
+  async stopAll(): Promise<void> {
     for (const process of this.registry.values()) {
-      process.stop();
+      await process.stop();
     }
   }
 
@@ -284,7 +323,7 @@ export class ProcessManager {
   /**
    * Stop a process by name or base name
    */
-  stopProcess(name: string): void {
+  async stopProcess(name: string): Promise<void> {
     const processes = this.getProcessesByBaseName(name);
     if (processes.length === 0) {
       const p = this.registry.get(name);
@@ -292,7 +331,7 @@ export class ProcessManager {
     }
     
     for (const proc of processes) {
-      proc.stop();
+      await proc.stop();
     }
   }
 
@@ -309,6 +348,36 @@ export class ProcessManager {
     for (const proc of processes) {
       await proc.restart();
     }
+  }
+
+  /**
+   * Get in-memory logs for a process by name
+   * @param name Process name or base name
+   * @param limit Maximum entries to return
+   */
+  getProcessLogs(name: string, limit?: number): import('./ManagedProcess').LogEntry[] {
+    // Try direct name first, then base name lookup
+    let proc = this.registry.get(name);
+    if (!proc) {
+      const procs = this.getProcessesByBaseName(name);
+      proc = procs[0];
+    }
+    return proc ? proc.getLogs(limit) : [];
+  }
+
+  /**
+   * Send stdin input to a running process
+   * @param name Process name
+   * @param input Text to send
+   * @returns true if sent successfully
+   */
+  sendProcessInput(name: string, input: string): boolean {
+    let proc = this.registry.get(name);
+    if (!proc) {
+      const procs = this.getProcessesByBaseName(name);
+      proc = procs[0];
+    }
+    return proc ? proc.sendInput(input) : false;
   }
 
   /**

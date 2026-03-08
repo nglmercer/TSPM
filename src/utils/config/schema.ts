@@ -8,7 +8,9 @@ import { type } from 'arktype';
 import { 
   ErrorSeverityValues, 
   type ErrorSeverity,
-  DEFAULT_PROCESS_CONFIG 
+  DEFAULT_PROCESS_CONFIG,
+  getDefaultLogPath,
+  getDefaultErrLogPath
 } from './constants';
 
 /**
@@ -146,6 +148,8 @@ export const ProcessConfigSchema = type({
   'script': 'string>0',
   /** Command line arguments */
   'args?': 'string[]',
+  /** Interpreter to use (e.g. bun, node, python) */
+  'interpreter?': 'string',
   /** Environment variables */
   'env?': 'Record<string, string>',
   /** Current working directory */
@@ -511,10 +515,20 @@ export function normalizeConfig(config: TSPMConfig): TSPMConfig {
     namespace: config.namespace || 'default',
     ...config.defaults,
   };
+  const logDir = config.logDir || DEFAULT_PROCESS_CONFIG.logDir;
 
   return {
     ...config,
-    processes: config.processes.map((proc: ProcessConfig) => applyDefaults(proc, defaults)),
+    processes: config.processes.map((proc: ProcessConfig) => {
+      const p = applyDefaults(proc, defaults);
+      if (!p.stdout) {
+        p.stdout = getDefaultLogPath(p.name, logDir);
+      }
+      if (!p.stderr) {
+        p.stderr = getDefaultErrLogPath(p.name, logDir);
+      }
+      return p;
+    }),
   };
 }
 

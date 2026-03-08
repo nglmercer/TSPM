@@ -261,7 +261,23 @@ export function getDefaultLogPath(
   processName: string, 
   logDir: string = DEFAULT_PROCESS_CONFIG.logDir
 ): string {
-  return `${logDir}/${processName}.log`;
+  const safeName = processName.replace(/-\d+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `${logDir}/${safeName}.log`;
+}
+
+/**
+ * Get the default error log file path for a process
+ * 
+ * @param processName - Name of the process
+ * @param logDir - Log directory (defaults to DEFAULT_PROCESS_CONFIG.logDir)
+ * @returns Error log file path
+ */
+export function getDefaultErrLogPath(
+  processName: string, 
+  logDir: string = DEFAULT_PROCESS_CONFIG.logDir
+): string {
+  const safeName = processName.replace(/-\d+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `${logDir}/${safeName}-err.log`;
 }
 
 /**
