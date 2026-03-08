@@ -670,12 +670,12 @@ export class ManagedProcess {
     }
     const sink = this.subprocess.stdin;
     // stdin can be FileSink or a file descriptor number; only FileSink has .write()
-    if (typeof sink === 'number' || typeof (sink as any).write !== 'function') {
+    if (typeof sink === 'number' || typeof sink.write !== 'function') {
       return false;
     }
     try {
       const data = input.endsWith('\n') ? input : input + '\n';
-      (sink as import('bun').FileSink).write(data);
+      sink.write(data);
       return true;
     } catch (e) {
       log.error(`${APP_CONSTANTS.LOG_PREFIX} Failed to write stdin for ${this.fullProcessName}: ${e}`);

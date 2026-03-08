@@ -148,7 +148,7 @@ export function registerProcessRoutes(router: Router) {
     // Get all process logs combined (from in-memory buffers)
     router.addRoute('GET', '/logs', async (req) => {
         const limit = parseInt(new URL(req.url).searchParams.get('limit') || '50');
-        const statuses = (router as any).getStatusesWithStats();
+        const statuses = router.getStatusesWithStats();
 
         const allLogs: any[] = [];
         for (const status of statuses) {
@@ -231,8 +231,8 @@ export function registerProcessRoutes(router: Router) {
             }, { status: HTTP_STATUS.BAD_REQUEST });
         }
 
-        const statuses = (router as any).getStatusesWithStats();
-        const process = statuses.find((p: any) => p.name === name);
+        const statuses = router.getStatusesWithStats();
+        const process = statuses.find((p) => p.name === name);
 
         if (!process) {
             return Response.json({ 
