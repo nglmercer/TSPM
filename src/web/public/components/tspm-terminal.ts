@@ -5,6 +5,7 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 export class TspmTerminal extends LitElement {
     @property({ type: Boolean }) active = false;
     @state() private history: any[] = [];
+    @state() private currentCwd: string = '';
 
     @query('.output') private outputEl?: HTMLElement;
     @query('input') private inputEl?: HTMLInputElement;
@@ -12,6 +13,23 @@ export class TspmTerminal extends LitElement {
     constructor() {
         super();
         this._setupListeners();
+        this._initCwd();
+    }
+
+    private async _initCwd() {
+        try {
+            // Get initial stats to find current server CWD
+            const res = await fetch('/api/v1/stats');
+            const data = await res.json();
+            if (data.success && data.data.cwd) {
+                this.currentCwd = data.data.cwd;
+            } else {
+                // Fallback or just wait for first command
+                this.currentCwd = '/';
+            }
+        } catch (e) {
+            this.currentCwd = '/';
+        }
     }
 
     private _setupListeners() {
@@ -43,10 +61,11 @@ export class TspmTerminal extends LitElement {
             padding: 8px 16px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: space-between;
             border-bottom: 1px solid #333;
         }
 
+        .left-header { display: flex; align-items: center; gap: 12px; }
         .dots { display: flex; gap: 6px; }
         .dot { width: 10px; height: 10px; border-radius: 50%; }
         .dot.red { background: #ff5f56; }
@@ -54,6 +73,7 @@ export class TspmTerminal extends LitElement {
         .dot.green { background: #27c93f; }
 
         .title { color: #888; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; }
+        .cwd-display { color: #6366f1; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; opacity: 0.8; }
 
         .output {
             flex: 1;
@@ -82,7 +102,8 @@ export class TspmTerminal extends LitElement {
             border-top: 1px solid #1a1a1a;
         }
 
-        .prompt { color: #10b981; margin-right: 12px; font-weight: bold; }
+        .prompt { color: #10b981; margin-right: 12px; font-weight: bold; font-family: 'JetBrains Mono', monospace; }
+        .prompt .path { color: #6366f1; margin-right: 4px; font-weight: normal; }
 
         input {
             background: transparent;
@@ -107,11 +128,22 @@ export class TspmTerminal extends LitElement {
                 const res = await fetch('/api/v1/execute', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command: cmd })
+                    body: JSON.stringify({ 
+                        command: cmd,
+                        cwd: this.currentCwd
+                    })
                 });
                 const data = await res.json();
-                if (data.output) this.history = [...this.history, { text: data.output, type: 'output' }];
-                if (data.error) this.history = [...this.history, { text: data.error, type: 'error' }];
+                
+                if (data.success) {
+                    if (data.newCwd) {
+                        this.currentCwd = data.newCwd;
+                    }
+                    if (data.output) this.history = [...this.history, { text: data.output, type: 'output' }];
+                } else {
+                    if (data.error) this.history = [...this.history, { text: data.error, type: 'error' }];
+                }
+                
                 this._scrollToBottom();
             } catch (err) {
                 this.history = [...this.history, { text: 'Execution failed', type: 'error' }];
@@ -131,16 +163,25 @@ export class TspmTerminal extends LitElement {
         }
     }
 
+    private _getShortCwd() {
+        if (!this.currentCwd) return '~';
+        const parts = this.currentCwd.split(/[\\/]/);
+        return parts[parts.length - 1] || '/';
+    }
+
     override render() {
         return html`
             <div class="terminal">
                 <div class="header">
-                    <div class="dots">
-                        <div class="dot red"></div>
-                        <div class="dot yellow"></div>
-                        <div class="dot green"></div>
+                    <div class="left-header">
+                        <div class="dots">
+                            <div class="dot red"></div>
+                            <div class="dot yellow"></div>
+                            <div class="dot green"></div>
+                        </div>
+                        <div class="title">TSPM SHELL — BUN</div>
                     </div>
-                    <div class="title">TSPM SHELL — BUN</div>
+                    <div class="cwd-display">${this.currentCwd}</div>
                 </div>
                 <div class="output">
                     ${this.history.map(line => html`
@@ -148,7 +189,9 @@ export class TspmTerminal extends LitElement {
                     `)}
                 </div>
                 <div class="input-area">
-                    <span class="prompt">➜</span>
+                    <span class="prompt">
+                        <span class="path">${this._getShortCwd()}</span>➜
+                    </span>
                     <input type="text" placeholder="Type a command..." @keydown="${this._handleKey}" />
                 </div>
             </div>
