@@ -59,7 +59,7 @@ export function registerDumpRoutes(router: Router) {
 
         // Update in-memory manager for each process
         for (const proc of body.processes) {
-            manager.addProcess(proc, false);
+            await manager.addProcess(proc, false);
         }
 
         return Response.json({
@@ -108,7 +108,7 @@ export function registerDumpRoutes(router: Router) {
         PersistenceManager.save(data);
 
         // Update in-memory manager registry
-        manager.addProcess(updated, false);
+        await manager.addProcess(updated, false);
 
         return Response.json({
             success: true,

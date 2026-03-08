@@ -527,6 +527,24 @@ export class ManagedProcess {
   }
 
   /**
+   * Update the process configuration
+   * @param config New configuration
+   */
+  updateConfig(config: ProcessConfig): void {
+    const oldConfig = this.config;
+    this.config = config;
+    
+    // If watch settings changed, we might need to reset the watcher
+    if (this.watcher && (oldConfig.watch !== config.watch || oldConfig.watchDelay !== config.watchDelay)) {
+      this.watcher.close();
+      this.watcher = undefined;
+      if (config.watch) {
+        this.setupWatcher();
+      }
+    }
+  }
+
+  /**
    * Get instance ID
    */
   getInstanceId(): number {

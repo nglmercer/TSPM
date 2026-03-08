@@ -232,7 +232,10 @@ export class TspmApp extends LitElement {
                 </div>
             </main>
 
-            <tspm-modal @process-added="${this.fetchData}"></tspm-modal>
+            <tspm-modal 
+                @process-added="${this.fetchData}"
+                @process-updated="${this.fetchData}"
+            ></tspm-modal>
         `;
     }
 }
