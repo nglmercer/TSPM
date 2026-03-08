@@ -78,11 +78,13 @@ export class TspmApp extends LitElement {
             const res = await fetch(`/api/v1/dump/${encodeURIComponent(name)}`, { method: 'DELETE' });
             const d = await res.json();
             if (d.success) {
+                this.notifications.show({ message: `Process "${name}" deleted`, type: 'success' });
                 this.fetchData();
             } else {
-                alert(d.error || 'Delete failed');
+                this.notifications.show({ message: d.error || 'Delete failed', type: 'error', title: 'Error' });
             }
         } catch (err) {
+            this.notifications.show({ message: 'Failed to delete process', type: 'error' });
             console.error('Failed to delete process', err);
         }
     }

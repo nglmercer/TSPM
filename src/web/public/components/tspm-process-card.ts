@@ -150,8 +150,19 @@ export class TspmProcessCard extends LitElement {
             const data = await res.json();
             if (data.success) {
                 this.dispatchEvent(new CustomEvent('refresh-required', { bubbles: true, composed: true }));
+            } else {
+                this.dispatchEvent(new CustomEvent('show-notification', {
+                    detail: { message: data.error || `Failed to ${type}`, type: 'error' },
+                    bubbles: true,
+                    composed: true
+                }));
             }
         } catch (err) {
+            this.dispatchEvent(new CustomEvent('show-notification', {
+                detail: { message: `Network error while trying to ${type}`, type: 'error' },
+                bubbles: true,
+                composed: true
+            }));
             console.error('Action failed', err);
         }
     }
